@@ -7,7 +7,10 @@ M2: generate-week, list-posts, approve-week.
 from __future__ import annotations
 
 import argparse
+import secrets as pysecrets
+import subprocess
 import sys
+import time
 from datetime import date
 from pathlib import Path
 
@@ -25,7 +28,16 @@ from .post_queue import (
     list_posts,
     set_post_fields,
 )
-from .secrets import KeychainStore
+from .oauth import (
+    SERVICE as CANVA_SERVICE,
+    CanvaOAuthConfig,
+    CanvaTokens,
+    OAuthError,
+    build_authorize_url,
+    make_pkce,
+    wait_for_code,
+)
+from .secrets import KeychainStore, SecretNotFound
 
 DEFAULT_CONFIG = Path(__file__).resolve().parents[2] / "config" / "brands.toml"
 
@@ -64,6 +76,12 @@ def build_parser() -> argparse.ArgumentParser:
     a.add_argument("--week", type=_date, required=True)
     a.add_argument("--actor", required=True, help="approver name, e.g. pamela")
 
+    au = sub.add_parser("auth", help="connect external accounts (run on the Mac that will use them)")
+    au_sub = au.add_subparsers(dest="provider", required=True)
+    au_sub.add_parser("canva", help="connect a Canva account (browser sign-in)")
+    au_sub.add_parser("canva-status", help="show whether Canva is connected (no tokens printed)")
+    au_sub.add_parser("canva-disconnect", help="remove stored Canva tokens from this Mac")
+
     d = sub.add_parser("draft-week", help="draft captions with Claude for a brand and week")
     d.add_argument("--brand", required=True)
     d.add_argument("--week", type=_date, required=True)
@@ -77,6 +95,61 @@ def build_parser() -> argparse.ArgumentParser:
     e.add_argument("--visual-source", choices=["ai", "real_photo", "canva"])
     e.add_argument("--hashtags", nargs="+")
     return p
+
+
+PLACEHOLDER_CLIENT_ID = "REPLACE_WITH_CANVA_CLIENT_ID"
+_NO_CANVA = CanvaOAuthConfig(client_id="", scopes=("none",), authorize_url="", token_url="")
+
+
+def _has_secret(store, account: str) -> bool:
+    try:
+        store.get(CANVA_SERVICE, account)
+        return True
+    except SecretNotFound:
+        return False
+
+
+def _auth(args, cfg, guard: Guard) -> int:
+    store = KeychainStore()
+    if args.provider in ("canva-status", "canva-disconnect"):
+        tokens = CanvaTokens(store, cfg.canva or _NO_CANVA)
+        if args.provider == "canva-status":
+            if not tokens.is_connected():
+                print("canva: not connected")
+            else:
+                exp = tokens.expires_at()
+                when = time.strftime("%Y-%m-%d %H:%M %Z", time.localtime(exp)) if exp else "unknown"
+                print(f"canva: connected (access token expires {when})")
+            return 0
+        tokens.clear()
+        print("canva: tokens removed from this Mac")
+        return 0
+
+    # provider == "canva": browser connect
+    if cfg.canva is None:
+        print("config error: [canva] section missing in brands.toml", file=sys.stderr)
+        return 2
+    if not cfg.canva.client_id or cfg.canva.client_id == PLACEHOLDER_CLIENT_ID:
+        print("canva client_id is not set in brands.toml. Create the integration first.", file=sys.stderr)
+        return 2
+    tokens = CanvaTokens(store, cfg.canva, client_secret_present=_has_secret(store, "client_secret"))
+    verifier, challenge = make_pkce()
+    state = pysecrets.token_urlsafe(24)
+    url = build_authorize_url(cfg.canva, state, challenge)
+    print("Sign in to Canva with the account you want to connect. Opening your browser:")
+    print(url)
+    try:
+        subprocess.run(["open", url], check=False)
+    except OSError:
+        pass
+    try:
+        code = wait_for_code(cfg.canva, state)
+        tokens.exchange_code(code, verifier)
+    except OAuthError as exc:
+        print(f"canva connect failed: {exc}", file=sys.stderr)
+        return 3
+    print("canva: connected")
+    return 0
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -117,6 +190,9 @@ def main(argv: list[str] | None = None) -> int:
         finally:
             conn.close()
         return 0
+
+    if args.command == "auth":
+        return _auth(args, cfg, guard)
 
     # M2 commands work on the database; make sure the schema is current first.
     conn = connect(args.db)

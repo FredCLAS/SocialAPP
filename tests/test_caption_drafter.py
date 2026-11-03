@@ -199,13 +199,13 @@ def test_calendly_cta_allowed(cfg, conn):
 def test_ai_visual_must_be_labeled_in_draft(cfg, conn):
     pamela = list_posts(conn, brand_key="pamela_art", status="draft")[0]
     set_post_fields(conn, pamela.id, subject="Harbor at dusk", visual_source="ai")
-    out = good(cta="https://pamelapatton.art",
-               caption="A harbor at dusk. Shop at https://pamelapatton.art")
+    out = good(cta="https://www.pamelapatton.art",
+               caption="A harbor at dusk. Shop at https://www.pamelapatton.art")
     result = draft_post(conn, cfg, pamela.id, FakeClient(out), Guard(dry_run=False))
     assert result.outcome == "rejected" and any("AI visual" in p for p in result.problems)
 
-    labeled = good(cta="https://pamelapatton.art",
-                   caption="AI-generated harbor at dusk. Shop at https://pamelapatton.art")
+    labeled = good(cta="https://www.pamelapatton.art",
+                   caption="AI-generated harbor at dusk. Shop at https://www.pamelapatton.art")
     assert draft_post(conn, cfg, pamela.id, FakeClient(labeled), Guard(dry_run=False)).outcome == "drafted"
 
 

@@ -8,6 +8,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
+from .oauth import CanvaOAuthConfig
+
 # Brands that must never be configured (spec: no profiles for these).
 EXCLUDED_BRANDS = frozenset({"bluepal_fox", "compliance_without_panic"})
 
@@ -46,6 +48,7 @@ class Brand:
     assets_subdir: str
     platforms: dict[str, PlatformCadence]
     outreach_sender: str | None = None
+    contact_email: str | None = None
 
 
 @dataclass(frozen=True)
@@ -68,6 +71,7 @@ class Config:
     footer: Footer | None
     brands: dict[str, Brand] = field(default_factory=dict)
     llm: LlmConfig = field(default_factory=LlmConfig)
+    canva: CanvaOAuthConfig | None = None
 
     def brand(self, key: str) -> Brand:
         try:
@@ -143,6 +147,10 @@ def _parse_brand(key: str, raw: dict) -> Brand:
         if not sender.endswith("@classbyfred.com"):
             raise ConfigError(f"{where}: outreach_sender must be on classbyfred.com")
 
+    contact = raw.get("contact_email")
+    if contact is not None and not _EMAIL_RE.match(str(contact)):
+        raise ConfigError(f"{where}: contact_email is not an email address")
+
     platforms_raw = raw.get("platforms", {})
     platforms = {
         name: _parse_platform(key, name, cfg) for name, cfg in platforms_raw.items()
@@ -154,6 +162,7 @@ def _parse_brand(key: str, raw: dict) -> Brand:
         assets_subdir=str(_require(raw, "assets_subdir", where)),
         platforms=platforms,
         outreach_sender=sender,
+        contact_email=str(contact) if contact is not None else None,
     )
 
 
@@ -192,12 +201,27 @@ def parse_config(data: dict) -> Config:
     if llm.max_drafts_per_run < 1:
         raise ConfigError("llm.max_drafts_per_run must be >= 1")
 
+    canva = None
+    canva_raw = data.get("canva")
+    if canva_raw is not None:
+        scopes = tuple(canva_raw.get("scopes", ()))
+        if not scopes:
+            raise ConfigError("canva.scopes must list at least one scope")
+        canva = CanvaOAuthConfig(
+            client_id=str(canva_raw.get("client_id", "")),
+            scopes=scopes,
+            authorize_url=str(_require(canva_raw, "authorize_url", "canva")),
+            token_url=str(_require(canva_raw, "token_url", "canva")),
+            redirect_port=int(canva_raw.get("redirect_port", 8765)),
+        )
+
     return Config(
         timezone=tz,
         dry_run=bool(data.get("dry_run", True)),
         footer=footer,
         brands=brands,
         llm=llm,
+        canva=canva,
     )
 
 

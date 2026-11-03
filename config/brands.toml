@@ -2,6 +2,15 @@
 timezone = "America/New_York"
 dry_run = true          # global default; --live is not available until M10
 
+[canva]
+# Canva Connect OAuth. Pamela creates the integration in her Canva developer account
+# and pastes its client ID here. Endpoints below are from Canva's docs; verify before first use.
+client_id = "REPLACE_WITH_CANVA_CLIENT_ID"
+authorize_url = "https://www.canva.com/api/oauth/authorize"
+token_url = "https://api.canva.com/rest/v1/oauth/token"
+redirect_port = 8765
+scopes = ["design:content:read", "design:content:write", "design:meta:read", "asset:write", "brandtemplate:meta:read", "brandtemplate:content:read", "folder:read"]
+
 [llm]
 model = "claude-sonnet-5-5"   # caption drafting; key lives in Keychain as socialops.claude / api_key
 max_tokens = 800
@@ -48,7 +57,8 @@ assets_subdir = "clas_by_fred"
 
 [brands.pamela_art]
 display_name = "Pamela Patton"
-website = "https://pamelapatton.art"
+website = "https://www.pamelapatton.art"
+contact_email = "pam@pamelapatton.art"   # contact/from identity only; no cold outreach for this brand
 assets_subdir = "pamela_art"
 
   [brands.pamela_art.platforms.facebook]

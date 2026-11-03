@@ -37,12 +37,15 @@ class KeychainStore:
         self._bin = security_bin
 
     def get(self, service: str, account: str) -> str:
-        proc = subprocess.run(
-            [self._bin, "find-generic-password", "-s", service, "-a", account, "-w"],
-            capture_output=True,
-            text=True,
-            check=False,
-        )
+        try:
+            proc = subprocess.run(
+                [self._bin, "find-generic-password", "-s", service, "-a", account, "-w"],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+        except OSError as exc:
+            raise RuntimeError("Keychain unavailable: this tool needs macOS") from exc
         if proc.returncode != 0:
             raise SecretNotFound(f"{service}/{account}")
         return proc.stdout.rstrip("\n")

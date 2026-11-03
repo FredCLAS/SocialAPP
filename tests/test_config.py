@@ -115,3 +115,24 @@ def test_invalid_toml(tmp_path):
     p.write_text(textwrap.dedent("timezone = "))
     with pytest.raises(ConfigError, match="invalid TOML"):
         load_config(p)
+
+
+def test_canva_section_loaded(real_config_path):
+    cfg = load_config(real_config_path)
+    assert cfg.canva is not None
+    assert cfg.canva.redirect_port == 8765
+    assert "design:content:write" in cfg.canva.scopes
+
+
+def test_pamela_contact_and_www_site(real_config_path):
+    cfg = load_config(real_config_path)
+    pam = cfg.brands["pamela_art"]
+    assert pam.contact_email == "pam@pamelapatton.art"
+    assert pam.website == "https://www.pamelapatton.art"
+    assert pam.outreach_sender is None
+
+
+def test_canva_requires_scopes():
+    data = {"timezone": "America/New_York", "canva": {"authorize_url": "x", "token_url": "y", "scopes": []}}
+    with pytest.raises(ConfigError, match="scopes"):
+        parse_config(data)
