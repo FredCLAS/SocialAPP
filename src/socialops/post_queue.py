@@ -59,6 +59,11 @@ class Post:
     cta_url: str | None
     scheduled_at: str
     status: str
+    visual_source: str = "unknown"
+    draft_model: str | None = None
+
+
+AI_LABEL_TERMS = ("ai-generated", "ai generated", "illustrative")
 
 
 def _row_to_post(row: sqlite3.Row) -> Post:
@@ -75,6 +80,8 @@ def _row_to_post(row: sqlite3.Row) -> Post:
         cta_url=row["cta_url"],
         scheduled_at=row["scheduled_at"],
         status=row["status"],
+        visual_source=row["visual_source"],
+        draft_model=row["draft_model"],
     )
 
 
@@ -120,6 +127,10 @@ def completeness_problems(post: Post) -> list[str]:
         problems.append("missing hashtags")
     if post.content_type == "webinar_cta" and not post.cta_url:
         problems.append("webinar CTA needs cta_url")
+    if post.visual_source == "ai" and not any(t in post.caption.lower() for t in AI_LABEL_TERMS):
+        problems.append("AI-generated visual must be labeled in caption")
+    if post.visual_source == "unknown":
+        problems.append("visual source not set (ai | real_photo | canva)")
     return problems
 
 
@@ -176,13 +187,15 @@ def approve_week(conn: sqlite3.Connection, cfg: Config, brand_key: str, week_sta
 
 def set_post_fields(conn: sqlite3.Connection, post_id: int, **fields) -> Post:
     """Edit content on a draft or failed post. Approved content is locked: unapprove first."""
-    allowed = {"subject", "visual_path", "caption", "hashtags", "cta_url"}
+    allowed = {"subject", "visual_path", "visual_source", "caption", "hashtags", "cta_url"}
     bad = set(fields) - allowed
     if bad:
         raise ValueError(f"fields not editable: {sorted(bad)}")
     post = get_post(conn, post_id)
     if post.status not in ("draft", "failed"):
         raise InvalidTransition(f"post {post_id} is {post.status}; content is locked")
+    if "visual_source" in fields and fields["visual_source"] not in ("ai", "real_photo", "canva"):
+        raise ValueError("visual_source must be ai, real_photo, or canva")
     if "hashtags" in fields:
         fields["hashtags"] = json.dumps(list(fields["hashtags"]))
     assignments = ", ".join(f"{k} = ?" for k in fields)

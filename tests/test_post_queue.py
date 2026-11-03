@@ -36,6 +36,7 @@ def conn(tmp_db, cfg):
 def complete(conn, post_id):
     fields = dict(
         visual_path=f"assets/clas_by_fred/{post_id}.png",
+        visual_source="canva",
         caption="Hook sentence. Value follows. Call to action: classbyfred.com",
         hashtags=["#HIPAA", "#healthcarecompliance"],
         cta_url="https://classbyfred.com",
@@ -49,6 +50,28 @@ def approve_count(conn):
 
 def first_post(conn, brand="clas_by_fred"):
     return list_posts(conn, brand_key=brand, status="draft")[0]
+
+
+def test_missing_visual_source_blocks_approval(conn):
+    post = first_post(conn)
+    set_post_fields(conn, post.id, visual_path="a.png", caption="c", hashtags=["#x"], cta_url="https://classbyfred.com")
+    with pytest.raises(NotApprovable, match="visual source"):
+        transition(conn, post.id, "approved", actor="pamela")
+
+
+def test_ai_visual_needs_label(conn):
+    post = first_post(conn)
+    set_post_fields(conn, post.id, visual_path="a.png", visual_source="ai",
+                    caption="A lovely painting.", hashtags=["#art"], cta_url="https://pamelapatton.art")
+    with pytest.raises(NotApprovable, match="labeled"):
+        transition(conn, post.id, "approved", actor="pamela")
+    set_post_fields(conn, post.id, caption="AI-generated illustration of a harbor. Shop at pamelapatton.art")
+    assert transition(conn, post.id, "approved", actor="pamela").status == "approved"
+
+
+def test_visual_source_value_checked(conn):
+    with pytest.raises(ValueError, match="visual_source"):
+        set_post_fields(conn, first_post(conn).id, visual_source="stock")
 
 
 def test_incomplete_post_cannot_be_approved(conn):

@@ -33,3 +33,15 @@ python -m socialops --dry-run status    # dry-run is the default
 - Dry-run is on by default. Live writes need `--live`, and no live write path is enabled until M10.
 - Excluded brands (BluePal Fox, "Compliance Without Panic") are rejected by config validation.
 - Cold email is Microsoft 365 only, from `fred@classbyfred.com`. Opt-outs and the footer are required.
+
+## Caption drafting (M2B)
+
+```bash
+python -m socialops edit-post --id 1 --subject "HIPAA risk assessment basics" --visual-source canva
+python -m socialops draft-week --brand clas_by_fred --week 2026-11-02          # dry-run: no model call
+python -m socialops --live draft-week --brand clas_by_fred --week 2026-11-02   # calls Claude; costs money
+```
+
+- Live drafting reads the key from Keychain: `security add-generic-password -s socialops.claude -a api_key -w`. Do not paste the key into a command you keep in history.
+- Drafts never change status. Approval is still required (`approve-week`).
+- Model: `[llm] model` in `config/brands.toml`. Per-run cap: `max_drafts_per_run`.

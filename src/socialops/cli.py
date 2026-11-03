@@ -13,10 +13,19 @@ from pathlib import Path
 
 from . import __version__
 from .config import ConfigError, load_config
+from .caption_drafter import draft_week
 from .content_engine import generate_week, week_bounds_utc
 from .db import DEFAULT_DB_PATH, applied_versions, connect, migrate_down, migrate_up
 from .guard import Guard
-from .post_queue import NotApprovable, UnauthorizedApprover, approve_week, list_posts
+from .llm import client_from_keychain
+from .post_queue import (
+    NotApprovable,
+    UnauthorizedApprover,
+    approve_week,
+    list_posts,
+    set_post_fields,
+)
+from .secrets import KeychainStore
 
 DEFAULT_CONFIG = Path(__file__).resolve().parents[2] / "config" / "brands.toml"
 
@@ -54,6 +63,19 @@ def build_parser() -> argparse.ArgumentParser:
     a.add_argument("--brand", required=True)
     a.add_argument("--week", type=_date, required=True)
     a.add_argument("--actor", required=True, help="approver name, e.g. pamela")
+
+    d = sub.add_parser("draft-week", help="draft captions with Claude for a brand and week")
+    d.add_argument("--brand", required=True)
+    d.add_argument("--week", type=_date, required=True)
+    d.add_argument("--limit", type=int, default=None)
+    d.add_argument("--overwrite", action="store_true", help="replace existing captions")
+
+    e = sub.add_parser("edit-post", help="set topic, visual, or hashtags on a draft post")
+    e.add_argument("--id", type=int, required=True)
+    e.add_argument("--subject")
+    e.add_argument("--visual-path")
+    e.add_argument("--visual-source", choices=["ai", "real_photo", "canva"])
+    e.add_argument("--hashtags", nargs="+")
     return p
 
 
@@ -113,6 +135,36 @@ def main(argv: list[str] | None = None) -> int:
             for p in posts:
                 print(f"{p.scheduled_at}  {p.platform:<10} {p.content_type:<14} {p.format:<5} {p.status}")
             print(f"{len(posts)} posts")
+            return 0
+
+        if args.command == "edit-post":
+            fields = {
+                k: v
+                for k, v in {
+                    "subject": args.subject,
+                    "visual_path": args.visual_path,
+                    "visual_source": args.visual_source,
+                    "hashtags": args.hashtags,
+                }.items()
+                if v is not None
+            }
+            if not fields:
+                print("nothing to change", file=sys.stderr)
+                return 2
+            post = set_post_fields(conn, args.id, **fields)
+            print(f"post {post.id} updated: {', '.join(fields)}")
+            return 0
+
+        if args.command == "draft-week":
+            # Dry-run: no key needed, no model call. Live: key read from Keychain only now.
+            client = None if guard.dry_run else client_from_keychain(KeychainStore())
+            summary = draft_week(conn, cfg, args.brand, args.week, client, guard,
+                                 limit=args.limit, overwrite=args.overwrite)
+            for r in summary.results:
+                detail = f"  {'; '.join(r.problems)}" if r.problems else ""
+                print(f"post {r.post_id}: {r.outcome}{detail}")
+            print(f"drafted {summary.count('drafted')}, would draft {summary.count('would_draft')}, "
+                  f"rejected {summary.count('rejected')}, skipped {summary.count('skipped')}")
             return 0
 
         if args.command == "approve-week":

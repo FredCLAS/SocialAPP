@@ -55,11 +55,19 @@ class Footer:
 
 
 @dataclass(frozen=True)
+class LlmConfig:
+    model: str = "claude-sonnet-5-5"
+    max_tokens: int = 800
+    max_drafts_per_run: int = 25
+
+
+@dataclass(frozen=True)
 class Config:
     timezone: ZoneInfo
     dry_run: bool
     footer: Footer | None
     brands: dict[str, Brand] = field(default_factory=dict)
+    llm: LlmConfig = field(default_factory=LlmConfig)
 
     def brand(self, key: str) -> Brand:
         try:
@@ -171,11 +179,25 @@ def parse_config(data: dict) -> Config:
         if brand.outreach_sender and footer is None:
             raise ConfigError(f"brands.{key}: outreach requires a [footer] postal address")
 
+    llm_raw = data.get("llm", {})
+    llm = LlmConfig(
+        model=str(llm_raw.get("model", LlmConfig.model)),
+        max_tokens=int(llm_raw.get("max_tokens", LlmConfig.max_tokens)),
+        max_drafts_per_run=int(llm_raw.get("max_drafts_per_run", LlmConfig.max_drafts_per_run)),
+    )
+    if not llm.model.startswith("claude-"):
+        raise ConfigError("llm.model must be a claude-* model id")
+    if not 1 <= llm.max_tokens <= 4000:
+        raise ConfigError("llm.max_tokens must be between 1 and 4000")
+    if llm.max_drafts_per_run < 1:
+        raise ConfigError("llm.max_drafts_per_run must be >= 1")
+
     return Config(
         timezone=tz,
         dry_run=bool(data.get("dry_run", True)),
         footer=footer,
         brands=brands,
+        llm=llm,
     )
 
 

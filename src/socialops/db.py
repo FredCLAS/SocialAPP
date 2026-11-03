@@ -94,6 +94,18 @@ MIGRATIONS: tuple[Migration, ...] = (
         ALTER TABLE posts DROP COLUMN content_type;
         """,
     ),
+    Migration(
+        version=3,
+        name="drafts_and_visual_source",
+        up="""
+        ALTER TABLE posts ADD COLUMN visual_source TEXT NOT NULL DEFAULT 'unknown';
+        ALTER TABLE posts ADD COLUMN draft_model TEXT;
+        """,
+        down="""
+        ALTER TABLE posts DROP COLUMN draft_model;
+        ALTER TABLE posts DROP COLUMN visual_source;
+        """,
+    ),
 )
 
 _SCHEMA_TABLE = """
