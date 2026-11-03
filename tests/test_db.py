@@ -30,7 +30,7 @@ def test_down_removes_tables(tmp_db):
     conn = connect(tmp_db)
     migrate_up(conn)
     rolled = migrate_down(conn, target=0)
-    assert rolled == [m.version for m in MIGRATIONS]
+    assert rolled == [m.version for m in reversed(MIGRATIONS)]
     assert not ({"brands", "posts", "approvals"} & tables(conn))
     assert applied_versions(conn) == []
     conn.close()

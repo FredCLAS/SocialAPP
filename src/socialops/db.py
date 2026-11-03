@@ -80,6 +80,20 @@ MIGRATIONS: tuple[Migration, ...] = (
         DROP TABLE brands;
         """,
     ),
+    Migration(
+        version=2,
+        name="content_slots",
+        up="""
+        ALTER TABLE posts ADD COLUMN content_type TEXT NOT NULL DEFAULT 'standard';
+        ALTER TABLE posts ADD COLUMN format TEXT NOT NULL DEFAULT 'image';
+        CREATE UNIQUE INDEX posts_slot ON posts (brand_key, platform, scheduled_at);
+        """,
+        down="""
+        DROP INDEX posts_slot;
+        ALTER TABLE posts DROP COLUMN format;
+        ALTER TABLE posts DROP COLUMN content_type;
+        """,
+    ),
 )
 
 _SCHEMA_TABLE = """

@@ -33,6 +33,7 @@ class PlatformCadence:
     video_per_week: int
     days: tuple[str, ...]
     post_time: str
+    mix: tuple[tuple[str, int], ...] = ()  # ordered (content_type, count); sums to per_week
     manual_post: bool = False
     upload_deadline_hours: int | None = None
 
@@ -95,6 +96,16 @@ def _parse_platform(brand_key: str, platform: str, raw: dict) -> PlatformCadence
     if per_week != len(days):
         raise ConfigError(f"{where}: days must list exactly per_week entries")
 
+    mix_raw = raw.get("mix")
+    if mix_raw is None:
+        mix = ((("standard", per_week),) if per_week else ())
+    else:
+        mix = tuple((str(name), int(count)) for name, count in mix_raw.items())
+        if any(not name or count < 0 for name, count in mix):
+            raise ConfigError(f"{where}: mix names must be non-empty and counts >= 0")
+        if sum(count for _, count in mix) != per_week:
+            raise ConfigError(f"{where}: mix counts must sum to per_week ({per_week})")
+
     deadline = raw.get("upload_deadline_hours")
     return PlatformCadence(
         platform=platform,
@@ -102,6 +113,7 @@ def _parse_platform(brand_key: str, platform: str, raw: dict) -> PlatformCadence
         video_per_week=video_per_week,
         days=days,
         post_time=post_time,
+        mix=mix,
         manual_post=bool(raw.get("manual_post", False)),
         upload_deadline_hours=int(deadline) if deadline is not None else None,
     )

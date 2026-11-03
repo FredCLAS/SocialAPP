@@ -17,12 +17,14 @@ assets_subdir = "clas_by_fred"
   video_per_week = 3
   days = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
   post_time = "08:30"
+  mix = { image_checklist = 4, question = 2, webinar_cta = 1 }
 
   [brands.clas_by_fred.platforms.instagram]
   per_week = 7
   video_per_week = 3
   days = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
   post_time = "08:30"
+  mix = { image_checklist = 4, question = 2, webinar_cta = 1 }
 
   [brands.clas_by_fred.platforms.linkedin]
   per_week = 3
@@ -30,6 +32,7 @@ assets_subdir = "clas_by_fred"
   days = ["tue", "wed", "thu"]
   post_time = "10:00"
   manual_post = true
+  mix = { standard = 3 }
 
   [brands.clas_by_fred.platforms.youtube]
   per_week = 0            # replay per webinar, not weekly
@@ -48,9 +51,11 @@ assets_subdir = "pamela_art"
   video_per_week = 0
   days = ["mon", "wed", "fri", "sun"]
   post_time = "08:30"
+  mix = { art = 4 }
 
   [brands.pamela_art.platforms.instagram]
   per_week = 4
   video_per_week = 0
   days = ["mon", "wed", "fri", "sun"]
   post_time = "08:30"
+  mix = { art = 4 }

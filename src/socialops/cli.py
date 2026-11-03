@@ -1,17 +1,28 @@
-"""Command line entry point. M1 commands: check-config, migrate, dry-run status."""
+"""Command line entry point.
+
+M1: check-config, migrate, status.
+M2: generate-week, list-posts, approve-week.
+"""
 
 from __future__ import annotations
 
 import argparse
 import sys
+from datetime import date
 from pathlib import Path
 
 from . import __version__
 from .config import ConfigError, load_config
-from .db import DEFAULT_DB_PATH, connect, migrate_down, migrate_up, applied_versions
+from .content_engine import generate_week, week_bounds_utc
+from .db import DEFAULT_DB_PATH, applied_versions, connect, migrate_down, migrate_up
 from .guard import Guard
+from .post_queue import NotApprovable, UnauthorizedApprover, approve_week, list_posts
 
 DEFAULT_CONFIG = Path(__file__).resolve().parents[2] / "config" / "brands.toml"
+
+
+def _date(value: str) -> date:
+    return date.fromisoformat(value)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -20,16 +31,29 @@ def build_parser() -> argparse.ArgumentParser:
     mode = p.add_mutually_exclusive_group()
     mode.add_argument("--dry-run", action="store_true", help="force dry-run (default from config)")
     mode.add_argument("--live", action="store_true", help="allow live writes (not yet enabled; M10)")
+    p.add_argument("--db", type=Path, default=DEFAULT_DB_PATH)
 
     sub = p.add_subparsers(dest="command", required=True)
     sub.add_parser("check-config", help="validate brands.toml and print a summary")
 
     m = sub.add_parser("migrate", help="apply or roll back database migrations")
-    m.add_argument("--db", type=Path, default=DEFAULT_DB_PATH)
     m.add_argument("--down-to", type=int, default=None, help="roll back until this version")
     m.add_argument("--to", type=int, default=None, help="migrate up to this version only")
 
     sub.add_parser("status", help="show mode, brands, and applied migrations")
+
+    g = sub.add_parser("generate-week", help="create draft posts for one week (idempotent)")
+    g.add_argument("--week", type=_date, required=True, help="Monday of the week, YYYY-MM-DD")
+
+    lp = sub.add_parser("list-posts", help="list posts for a brand and week")
+    lp.add_argument("--brand", required=True)
+    lp.add_argument("--week", type=_date, required=True)
+    lp.add_argument("--status", default=None)
+
+    a = sub.add_parser("approve-week", help="approve all complete drafts for a brand and week")
+    a.add_argument("--brand", required=True)
+    a.add_argument("--week", type=_date, required=True)
+    a.add_argument("--actor", required=True, help="approver name, e.g. pamela")
     return p
 
 
@@ -64,15 +88,46 @@ def main(argv: list[str] | None = None) -> int:
         conn = connect(args.db)
         try:
             if args.down_to is not None:
-                rolled = migrate_down(conn, target=args.down_to)
-                print(f"rolled back: {rolled or 'nothing'}")
+                print(f"rolled back: {migrate_down(conn, target=args.down_to) or 'nothing'}")
             else:
-                applied = migrate_up(conn, target=args.to)
-                print(f"applied: {applied or 'nothing'}")
+                print(f"applied: {migrate_up(conn, target=args.to) or 'nothing'}")
             print(f"schema versions now: {applied_versions(conn)}")
         finally:
             conn.close()
         return 0
+
+    # M2 commands work on the database; make sure the schema is current first.
+    conn = connect(args.db)
+    try:
+        migrate_up(conn)
+        if args.command == "generate-week":
+            report = generate_week(conn, cfg, args.week)
+            print(f"week {args.week}: planned {report['planned']}, inserted {report['inserted']}, "
+                  f"already present {report['existing']}")
+            return 0
+
+        if args.command == "list-posts":
+            start, end = week_bounds_utc(args.week, cfg.timezone)
+            posts = list_posts(conn, brand_key=args.brand, status=args.status,
+                               scheduled_from=start, scheduled_to=end)
+            for p in posts:
+                print(f"{p.scheduled_at}  {p.platform:<10} {p.content_type:<14} {p.format:<5} {p.status}")
+            print(f"{len(posts)} posts")
+            return 0
+
+        if args.command == "approve-week":
+            if not guard.write(f"approve drafts {args.brand} week {args.week}"):
+                print("dry-run: no approvals written")
+                return 0
+            try:
+                ids = approve_week(conn, cfg, args.brand, args.week, args.actor)
+            except (NotApprovable, UnauthorizedApprover) as exc:
+                print(f"not approved: {exc}", file=sys.stderr)
+                return 3
+            print(f"approved {len(ids)} posts")
+            return 0
+    finally:
+        conn.close()
 
     return 1
 

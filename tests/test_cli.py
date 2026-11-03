@@ -18,10 +18,10 @@ def test_live_flag_reports_live(real_config_path, capsys):
 
 
 def test_migrate_via_cli(real_config_path, tmp_db, capsys):
-    assert main(["--config", str(real_config_path), "migrate", "--db", str(tmp_db)]) == 0
-    assert main(["--config", str(real_config_path), "migrate", "--db", str(tmp_db), "--down-to", "0"]) == 0
+    assert main(["--config", str(real_config_path), "--db", str(tmp_db), "migrate"]) == 0
+    assert main(["--config", str(real_config_path), "--db", str(tmp_db), "migrate", "--down-to", "0"]) == 0
     out = capsys.readouterr().out
-    assert "applied: [1]" in out and "rolled back: [1]" in out
+    assert "applied: [1, 2]" in out and "rolled back: [2, 1]" in out
 
 
 def test_bad_config_exit_code(tmp_path, capsys):
