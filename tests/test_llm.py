@@ -33,11 +33,11 @@ def test_request_shape_and_headers(monkeypatch):
         return _Resp(_ok_payload())
 
     monkeypatch.setattr(llm.urllib.request, "urlopen", fake_urlopen)
-    out = AnthropicClient(KEY).complete("sys", "usr", "claude-sonnet-5-5", 300)
+    out = AnthropicClient(KEY).complete("sys", "usr", "claude-haiku-5-5", 300)
     assert captured["url"] == llm.API_URL
     assert captured["headers"]["x-api-key"] == KEY
     assert captured["headers"]["anthropic-version"] == llm.API_VERSION
-    assert captured["body"]["model"] == "claude-sonnet-5-5"
+    assert captured["body"]["model"] == "claude-haiku-5-5"
     assert captured["body"]["max_tokens"] == 300
     assert captured["body"]["messages"] == [{"role": "user", "content": "usr"}]
     assert out.text == '{"caption": "x"}' and out.input_tokens == 12 and out.output_tokens == 7
@@ -49,7 +49,7 @@ def test_http_error_does_not_leak_key(monkeypatch):
 
     monkeypatch.setattr(llm.urllib.request, "urlopen", fake_urlopen)
     with pytest.raises(LlmError) as exc:
-        AnthropicClient(KEY).complete("s", "u", "claude-sonnet-5-5", 10)
+        AnthropicClient(KEY).complete("s", "u", "claude-haiku-5-5", 10)
     assert "401" in str(exc.value) and KEY not in str(exc.value)
 
 
@@ -59,14 +59,14 @@ def test_network_error_is_wrapped(monkeypatch):
 
     monkeypatch.setattr(llm.urllib.request, "urlopen", fake_urlopen)
     with pytest.raises(LlmError, match="unreachable"):
-        AnthropicClient(KEY).complete("s", "u", "claude-sonnet-5-5", 10)
+        AnthropicClient(KEY).complete("s", "u", "claude-haiku-5-5", 10)
 
 
 def test_empty_response_is_error(monkeypatch):
     monkeypatch.setattr(llm.urllib.request, "urlopen",
                         lambda req, timeout: _Resp(json.dumps({"content": []}).encode()))
     with pytest.raises(LlmError, match="no text"):
-        AnthropicClient(KEY).complete("s", "u", "claude-sonnet-5-5", 10)
+        AnthropicClient(KEY).complete("s", "u", "claude-haiku-5-5", 10)
 
 
 def test_repr_hides_key():

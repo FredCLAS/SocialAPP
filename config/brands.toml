@@ -12,7 +12,7 @@ redirect_port = 8765
 scopes = ["design:content:read", "design:content:write", "design:meta:read", "asset:write", "brandtemplate:meta:read", "brandtemplate:content:read", "folder:read"]
 
 [llm]
-model = "claude-sonnet-5-5"   # caption drafting; key lives in Keychain as socialops.claude / api_key
+model = "claude-haiku-5-5"   # caption drafting; key lives in Keychain as socialops.claude / api_key
 max_tokens = 800
 max_drafts_per_run = 25
 

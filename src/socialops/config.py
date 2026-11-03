@@ -59,7 +59,7 @@ class Footer:
 
 @dataclass(frozen=True)
 class LlmConfig:
-    model: str = "claude-sonnet-5-5"
+    model: str = "claude-haiku-5-5"
     max_tokens: int = 800
     max_drafts_per_run: int = 25
 
