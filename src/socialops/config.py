@@ -148,8 +148,8 @@ def _parse_brand(key: str, raw: dict) -> Brand:
             raise ConfigError(f"{where}: only clas_by_fred may have an outreach sender")
         if not _EMAIL_RE.match(sender):
             raise ConfigError(f"{where}: outreach_sender is not an email address")
-        if not sender.endswith("@classbyfred.com"):
-            raise ConfigError(f"{where}: outreach_sender must be on classbyfred.com")
+        if not sender.endswith("@clasbyfred.com"):
+            raise ConfigError(f"{where}: outreach_sender must be on clasbyfred.com")
 
     contact = raw.get("contact_email")
     if contact is not None and not _EMAIL_RE.match(str(contact)):

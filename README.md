@@ -32,7 +32,7 @@ python -m socialops --dry-run status    # dry-run is the default
 
 - Dry-run is on by default. Live writes need `--live`, and no live write path is enabled until M10.
 - Excluded brands (BluePal Fox, "Compliance Without Panic") are rejected by config validation.
-- Cold email is Microsoft 365 only, from `fred@classbyfred.com`. Opt-outs and the footer are required.
+- Cold email is Microsoft 365 only, from `fred@clasbyfred.com`. Opt-outs and the footer are required.
 
 ## Caption drafting (M2B)
 

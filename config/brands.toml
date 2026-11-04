@@ -30,7 +30,7 @@ postal_address = "6271 St Augustine Rd Ste 24, Jacksonville, FL 32217, US"
 [brands.clas_by_fred]
 display_name = "CLAS by Fred"
 website = "https://classbyfred.com"
-outreach_sender = "fred@classbyfred.com"   # cold email only; Microsoft 365 on classbyfred.com
+outreach_sender = "fred@clasbyfred.com"   # cold email only; Microsoft 365 on clasbyfred.com (confirm domain is owned)
 assets_subdir = "clas_by_fred"
 
   [brands.clas_by_fred.platforms.facebook]

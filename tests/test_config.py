@@ -29,7 +29,7 @@ def test_clas_cadence_matches_spec(real_config_path):
 
 def test_outreach_sender_is_classbyfred(real_config_path):
     cfg = load_config(real_config_path)
-    assert cfg.brands["clas_by_fred"].outreach_sender == "fred@classbyfred.com"
+    assert cfg.brands["clas_by_fred"].outreach_sender == "fred@clasbyfred.com"
     assert cfg.brands["pamela_art"].outreach_sender is None
 
 
@@ -66,7 +66,7 @@ def test_cold_sender_must_be_classbyfred():
         "brands": {"clas_by_fred": {"display_name": "c", "website": "w", "assets_subdir": "c",
                                     "outreach_sender": "x@gmail.com"}},
     }
-    with pytest.raises(ConfigError, match="classbyfred.com"):
+    with pytest.raises(ConfigError, match="clasbyfred.com"):
         parse_config(data)
 
 
@@ -74,7 +74,7 @@ def test_outreach_requires_footer():
     data = {
         "timezone": "America/New_York",
         "brands": {"clas_by_fred": {"display_name": "c", "website": "w", "assets_subdir": "c",
-                                    "outreach_sender": "fred@classbyfred.com"}},
+                                    "outreach_sender": "fred@clasbyfred.com"}},
     }
     with pytest.raises(ConfigError, match="postal address"):
         parse_config(data)
