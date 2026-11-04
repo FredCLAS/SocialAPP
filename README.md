@@ -62,3 +62,24 @@ python -m socialops --live draft-week --brand clas_by_fred --week 2026-11-02   #
    ```
 
 Tokens are stored in this Mac's Keychain under `socialops.canva`. Each person connects on their own Mac with their own Canva login.
+
+## Publish to Meta (M3)
+
+Setup, per Mac, run by the person who owns the Page/IG account (Pamela):
+
+1. Put the Page ID and Instagram business account ID in `config/brands.toml` under each `account_id`. These are IDs, not secrets.
+2. Store the Page access token. Use `-w` with no value so `security` prompts and the token is not typed into the command:
+   ```bash
+   security add-generic-password -s socialops.clas_by_fred.facebook -a access_token -w
+   security add-generic-password -s socialops.clas_by_fred.instagram -a access_token -w
+   ```
+   Optional expiry (Unix seconds), so the app can warn 7 days before it lapses:
+   ```bash
+   security add-generic-password -s socialops.clas_by_fred.facebook -a expires_at -w
+   ```
+3. Set `media.public_base_url` to the public https base where published images and videos are served. Meta fetches media from that URL. Not set = nothing publishes.
+4. Check: `python -m socialops token-status --brand clas_by_fred --platform facebook`
+
+Flow: `approve-week` (human) -> `schedule-week` -> `publish-due` (dry-run by default; add `--live` to publish).
+
+Safety: each publish is logged before the network call. Timeouts and 5xx on a POST are marked `unknown` and block retries, because the post may already be live. Check Meta before clearing those rows.

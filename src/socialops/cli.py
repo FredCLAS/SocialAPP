@@ -82,6 +82,17 @@ def build_parser() -> argparse.ArgumentParser:
     au_sub.add_parser("canva-status", help="show whether Canva is connected (no tokens printed)")
     au_sub.add_parser("canva-disconnect", help="remove stored Canva tokens from this Mac")
 
+    sw = sub.add_parser("schedule-week", help="move a week's approved posts to scheduled")
+    sw.add_argument("--brand", required=True)
+    sw.add_argument("--week", type=_date, required=True)
+
+    pd = sub.add_parser("publish-due", help="publish scheduled posts that are due (dry-run by default)")
+    pd.add_argument("--now", default=None, help="ISO time for testing; default is current UTC")
+
+    ts = sub.add_parser("token-status", help="show Meta token state for a brand and platform")
+    ts.add_argument("--brand", required=True)
+    ts.add_argument("--platform", required=True)
+
     d = sub.add_parser("draft-week", help="draft captions with Claude for a brand and week")
     d.add_argument("--brand", required=True)
     d.add_argument("--week", type=_date, required=True)
@@ -211,6 +222,31 @@ def main(argv: list[str] | None = None) -> int:
             for p in posts:
                 print(f"{p.scheduled_at}  {p.platform:<10} {p.content_type:<14} {p.format:<5} {p.status}")
             print(f"{len(posts)} posts")
+            return 0
+
+        if args.command == "schedule-week":
+            from .publisher import schedule_week
+            ids = schedule_week(conn, cfg, args.brand, args.week)
+            print(f"scheduled {len(ids)} posts")
+            return 0
+
+        if args.command == "token-status":
+            import time as _time
+            from .publisher import token_status
+            from .secrets import service_name
+            status = token_status(KeychainStore(), service_name(args.brand, args.platform), _time.time())
+            print(f"{args.brand} {args.platform}: token {status}")
+            return 0
+
+        if args.command == "publish-due":
+            from datetime import datetime, timezone
+            from .publisher import publish_due
+            now = datetime.fromisoformat(args.now) if args.now else datetime.now(timezone.utc)
+            store = None if guard.dry_run else KeychainStore()
+            results = publish_due(conn, cfg, store, guard, now)
+            for r in results:
+                print(f"post {r.post_id}: {r.outcome}" + (f"  {r.detail}" if r.detail else ""))
+            print(f"{len(results)} due")
             return 0
 
         if args.command == "edit-post":

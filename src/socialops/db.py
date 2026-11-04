@@ -106,6 +106,12 @@ MIGRATIONS: tuple[Migration, ...] = (
         ALTER TABLE posts DROP COLUMN visual_source;
         """,
     ),
+    Migration(
+        version=4,
+        name="publish_log_detail",
+        up="ALTER TABLE publish_log ADD COLUMN detail TEXT;",
+        down="ALTER TABLE publish_log DROP COLUMN detail;",
+    ),
 )
 
 _SCHEMA_TABLE = """

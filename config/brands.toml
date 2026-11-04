@@ -11,6 +11,13 @@ token_url = "https://api.canva.com/rest/v1/oauth/token"
 redirect_port = 8765
 scopes = ["design:content:read", "design:content:write", "design:meta:read", "asset:write", "brandtemplate:meta:read", "brandtemplate:content:read", "folder:read"]
 
+[meta]
+api_version = "v21.0"   # Graph API version; verify current before go-live
+
+[media]
+# Instagram and Facebook fetch media from a public URL. Hosting decision pending (see open questions).
+public_base_url = ""
+
 [llm]
 model = "claude-haiku-5-5"   # caption drafting; key lives in Keychain as socialops.claude / api_key
 max_tokens = 800
@@ -27,6 +34,7 @@ outreach_sender = "fred@classbyfred.com"   # cold email only; Microsoft 365 on c
 assets_subdir = "clas_by_fred"
 
   [brands.clas_by_fred.platforms.facebook]
+  account_id = "REPLACE_CLAS_FB_PAGE_ID"
   per_week = 7
   video_per_week = 3
   days = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
@@ -34,6 +42,7 @@ assets_subdir = "clas_by_fred"
   mix = { image_checklist = 4, question = 2, webinar_cta = 1 }
 
   [brands.clas_by_fred.platforms.instagram]
+  account_id = "REPLACE_CLAS_IG_BUSINESS_ID"
   per_week = 7
   video_per_week = 3
   days = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
@@ -62,6 +71,7 @@ contact_email = "pam@pamelapatton.art"   # contact/from identity only; no cold o
 assets_subdir = "pamela_art"
 
   [brands.pamela_art.platforms.facebook]
+  account_id = "REPLACE_PAMELA_FB_PAGE_ID"
   per_week = 4
   video_per_week = 0
   days = ["mon", "wed", "fri", "sun"]
@@ -69,6 +79,7 @@ assets_subdir = "pamela_art"
   mix = { art = 4 }
 
   [brands.pamela_art.platforms.instagram]
+  account_id = "REPLACE_PAMELA_IG_BUSINESS_ID"
   per_week = 4
   video_per_week = 0
   days = ["mon", "wed", "fri", "sun"]

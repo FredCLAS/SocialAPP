@@ -38,6 +38,7 @@ class PlatformCadence:
     mix: tuple[tuple[str, int], ...] = ()  # ordered (content_type, count); sums to per_week
     manual_post: bool = False
     upload_deadline_hours: int | None = None
+    account_id: str | None = None  # Facebook Page id or Instagram business account id (not secret)
 
 
 @dataclass(frozen=True)
@@ -72,6 +73,8 @@ class Config:
     brands: dict[str, Brand] = field(default_factory=dict)
     llm: LlmConfig = field(default_factory=LlmConfig)
     canva: CanvaOAuthConfig | None = None
+    meta_api_version: str = "v21.0"
+    media_base_url: str | None = None  # public HTTPS base where published media is reachable
 
     def brand(self, key: str) -> Brand:
         try:
@@ -128,6 +131,7 @@ def _parse_platform(brand_key: str, platform: str, raw: dict) -> PlatformCadence
         mix=mix,
         manual_post=bool(raw.get("manual_post", False)),
         upload_deadline_hours=int(deadline) if deadline is not None else None,
+        account_id=str(raw["account_id"]) if raw.get("account_id") is not None else None,
     )
 
 
@@ -215,6 +219,12 @@ def parse_config(data: dict) -> Config:
             redirect_port=int(canva_raw.get("redirect_port", 8765)),
         )
 
+    meta_raw = data.get("meta", {})
+    media_raw = data.get("media", {})
+    media_base = media_raw.get("public_base_url") or None
+    if media_base is not None and not str(media_base).startswith("https://"):
+        raise ConfigError("media.public_base_url must be https")
+
     return Config(
         timezone=tz,
         dry_run=bool(data.get("dry_run", True)),
@@ -222,6 +232,8 @@ def parse_config(data: dict) -> Config:
         brands=brands,
         llm=llm,
         canva=canva,
+        meta_api_version=str(meta_raw.get("api_version", "v21.0")),
+        media_base_url=str(media_base) if media_base else None,
     )
 
 
