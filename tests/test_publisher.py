@@ -46,7 +46,9 @@ class Recorder:
 def cfg(tmp_path):
     """Real config with placeholder account ids filled in and a media host set (test copy only)."""
     text = Path("config/brands.toml").read_text()
-    text = text.replace("REPLACE_", "TEST_").replace('public_base_url = ""', 'public_base_url = "https://media.example.com"')
+    text = text.replace("REPLACE_", "TEST_").replace(
+        'public_base_url = "https://whimsical-sprite-d0ccf7.netlify.app/social-media"',
+        'public_base_url = "https://media.example.com"')
     p = tmp_path / "brands.toml"
     p.write_text(text)
     return load_config(p)
@@ -232,7 +234,7 @@ def test_crash_leaves_attempt_that_blocks_retry(cfg, conn, store):
 
 
 def test_placeholder_account_blocks_without_network(cfg, conn, store, tmp_path):
-    text = Path("config/brands.toml").read_text().replace('public_base_url = ""', 'public_base_url = "https://m.example.com"')
+    text = Path("config/brands.toml").read_text()
     p = tmp_path / "real.toml"
     p.write_text(text)  # keeps REPLACE_ placeholders
     real = load_config(p)
@@ -265,7 +267,8 @@ def test_expired_token_blocks(cfg, conn):
 
 
 def test_missing_media_host_blocks_and_logs(cfg, conn, store, tmp_path):
-    text = Path("config/brands.toml").read_text().replace("REPLACE_", "TEST_")
+    text = Path("config/brands.toml").read_text().replace("REPLACE_", "TEST_").replace(
+        'public_base_url = "https://whimsical-sprite-d0ccf7.netlify.app/social-media"', 'public_base_url = ""')
     p = tmp_path / "nomedia.toml"
     p.write_text(text)
     nomedia = load_config(p)

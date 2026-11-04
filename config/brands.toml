@@ -16,7 +16,7 @@ api_version = "v21.0"   # Graph API version; verify current before go-live
 
 [media]
 # Instagram and Facebook fetch media from a public URL. Hosting decision pending (see open questions).
-public_base_url = ""
+public_base_url = "https://whimsical-sprite-d0ccf7.netlify.app/social-media"
 
 [llm]
 model = "claude-haiku-5-5"   # caption drafting; key lives in Keychain as socialops.claude / api_key
