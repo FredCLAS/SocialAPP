@@ -45,6 +45,8 @@ def complete(conn, post_id):
 
 
 def _complete(conn, post_id):
+    conn.execute("UPDATE posts SET format='image' WHERE id=?", (post_id,))
+    conn.commit()
     fields = dict(
         subject="HIPAA risk assessment basics",
         visual_path=f"assets/clas_by_fred/{post_id}.png",
@@ -73,6 +75,8 @@ def test_missing_visual_source_blocks_approval(conn):
 
 def test_ai_visual_needs_label(conn):
     post = first_post(conn)
+    conn.execute("UPDATE posts SET format='image' WHERE id=?", (post.id,))
+    conn.commit()
     base = dict(subject="Harbor at dusk", visual_path="a.png", visual_source="ai",
                 hashtags=["#art", "#harbor", "#oils"], cta_url="https://classbyfred.com")
     set_post_fields(conn, post.id, caption="A lovely painting. Look closer. See https://classbyfred.com", **base)

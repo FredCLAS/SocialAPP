@@ -108,6 +108,12 @@ def build_parser() -> argparse.ArgumentParser:
     rv.add_argument("--actor", required=True, help="approver name, e.g. pamela")
     rv.add_argument("--port", type=int, default=8777)
 
+    rd = sub.add_parser("run-due", help="one scheduler tick: schedule approved posts, publish what is due")
+    rd.add_argument("--now", default=None, help="ISO time for testing; default is current UTC")
+
+    isc = sub.add_parser("install-schedule", help="write the launchd job that runs run-due every 5 minutes")
+    isc.add_argument("--dest", type=Path, default=None, help="folder for the plist (default ~/Library/LaunchAgents)")
+
     d = sub.add_parser("draft-week", help="draft captions with Claude for a brand and week")
     d.add_argument("--brand", required=True)
     d.add_argument("--week", type=_date, required=True)
@@ -248,6 +254,26 @@ def main(argv: list[str] | None = None) -> int:
             from .review import serve
             conn.close()
             serve(args.db, cfg, args.brand, args.week, args.actor, port=args.port)
+            return 0
+
+        if args.command == "run-due":
+            from .agents import Context
+            from .scheduler import run_due
+            from .secrets import KeychainStore as _KS
+            store = None if guard.dry_run else _KS()
+            results = run_due(conn, cfg, store, guard, _now(args.now))
+            for name, res in results:
+                print(f"{name}: {res.status}" + (f" ({res.reason})" if res.reason else ""))
+            return 0
+
+        if args.command == "install-schedule":
+            from .scheduler import install_schedule
+            target = install_schedule(live=not guard.dry_run, config_path=str(args.config),
+                                      db_path=str(args.db), agents_dir=args.dest)
+            mode = "LIVE" if not guard.dry_run else "dry-run"
+            print(f"wrote {target} ({mode})")
+            print("load it:   launchctl bootstrap gui/$(id -u) " + str(target))
+            print("stop it:   launchctl bootout gui/$(id -u)/com.socialops.run-due")
             return 0
 
         if args.command == "qa-week":

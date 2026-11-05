@@ -107,3 +107,18 @@ Open the printed address in a browser on the same Mac. The page lists the week's
 
 - The page listens on 127.0.0.1 only and needs the per-run token in its address.
 - Rejections need a reason and keep the post as a draft.
+
+## Scheduler (M4D)
+
+```bash
+python -m socialops run-due                       # one tick, dry-run by default
+python -m socialops --live run-due                # one tick, real publishing
+python -m socialops --live install-schedule       # write the launchd job (every 5 minutes)
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.socialops.run-due.plist
+launchctl bootout gui/$(id -u)/com.socialops.run-due   # stop it
+```
+
+- Each tick: schedule approved posts whose slot is near, then publish what is due.
+- Approved posts more than 6 hours past their slot are not scheduled automatically. Reschedule or re-approve them.
+- Runs never overlap (file lock). Logs: `~/Library/Logs/SocialOps/run-due.*.log`.
+- Install writes the job file only. Nothing runs until you load it with `launchctl`.

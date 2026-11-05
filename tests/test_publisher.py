@@ -310,7 +310,8 @@ def test_instagram_image_uses_container_flow(cfg, conn, store):
 
 
 def test_video_post_uses_reels(cfg, conn, store):
-    pid = ready(conn, cfg, brand="clas_by_fred", platform="instagram", fmt="video")
+    pid = ready(conn, cfg, brand="clas_by_fred", platform="instagram", fmt="video",
+                visual="assets/clas_by_fred/v.mp4")
     rec = Recorder((200, {"id": "C2"}), (200, {"status_code": "FINISHED"}), (200, {"id": "R9"}))
     publish_due(conn, cfg, store, Guard(dry_run=False), DUE_NOW, transport=rec, sleep=lambda s: None)
     assert rec.calls[0]["fields"]["media_type"] == "REELS"

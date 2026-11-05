@@ -43,6 +43,8 @@ def fb_drafts(conn):
 
 
 def make_passing(conn, cfg, pid, visual="assets/clas_by_fred/a.png"):
+    conn.execute("UPDATE posts SET format='image' WHERE id=?", (pid,))
+    conn.commit()
     set_post_fields(conn, pid, subject="HIPAA basics", visual_path=visual, visual_source="canva",
                     caption=GOOD, hashtags=["#HIPAA", "#healthcarecompliance", "#privacy"],
                     cta_url="https://classbyfred.com")

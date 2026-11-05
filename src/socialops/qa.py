@@ -13,6 +13,7 @@ import re
 import sqlite3
 from dataclasses import dataclass, field
 from datetime import datetime
+from pathlib import PurePosixPath
 from urllib.parse import urlparse
 
 from .caption_drafter import BANNED_PHRASES, PLACEHOLDER_SUBJECT_RE, ALLOWED_EXTRA_HOSTS, HASHTAG_RE
@@ -101,7 +102,12 @@ def run_checks(post: Post, cfg: Config, fetch_status=None) -> list[Check]:
         in_slot = local.strftime("%H:%M") == pc.post_time and weekday in pc.days
         add("slot", in_slot, f"scheduled {local:%a %H:%M} is not a configured {pc.post_time} slot")
 
-    # 10. link reachable (read-only; skipped without a fetcher)
+    # 10. video format: Reels and FB video need an MP4 or MOV file
+    if post.format == "video":
+        ext = PurePosixPath((post.visual_path or "").lower()).suffix
+        add("video_file", ext in (".mp4", ".mov"), "video post needs an .mp4 or .mov file")
+
+    # 11. link reachable (read-only; skipped without a fetcher)
     if fetch_status is None:
         checks.append(Check("link_reachable", None, "not checked (no fetcher; dry-run or offline)"))
     else:

@@ -36,6 +36,8 @@ def fb_post(conn):
 
 def make_good(conn, cfg, post_id=None):
     pid = post_id or fb_post(conn).id
+    conn.execute("UPDATE posts SET format='image' WHERE id=?", (pid,))
+    conn.commit()
     set_post_fields(conn, pid, subject="HIPAA basics", visual_path="assets/clas_by_fred/a.png",
                     visual_source="canva", caption=GOOD_CAPTION, hashtags=GOOD_TAGS,
                     cta_url="https://classbyfred.com")
