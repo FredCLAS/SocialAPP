@@ -189,6 +189,31 @@ def build_parser() -> argparse.ArgumentParser:
     vc.add_argument("--brand", required=True)
     vc.add_argument("--week", type=_date, required=True)
 
+    va = sub.add_parser("video-add", help="start a video job (Zoice queue)")
+    va.add_argument("--brand", required=True)
+    va.add_argument("--topic", required=True)
+
+    vs = sub.add_parser("video-script", help="draft a script with Claude (live) or save one typed in")
+    vs.add_argument("--id", type=int, required=True)
+    vs.add_argument("--text", default=None, help="save this script instead of drafting")
+
+    vap = sub.add_parser("video-approve-script", help="approve a script and queue its Zoice brief")
+    vap.add_argument("--id", type=int, required=True)
+    vap.add_argument("--actor", required=True)
+
+    vpr = sub.add_parser("video-produced", help="record the finished video file (in the brand assets folder)")
+    vpr.add_argument("--id", type=int, required=True)
+    vpr.add_argument("--file", required=True)
+
+    vl = sub.add_parser("video-link", help="attach a produced video to a Facebook or Instagram video post")
+    vl.add_argument("--id", type=int, required=True)
+    vl.add_argument("--post-id", type=int, required=True)
+
+    vli = sub.add_parser("video-list", help="list video jobs for a brand")
+    vli.add_argument("--brand", required=True)
+
+    sub.add_parser("video-sync", help="move jobs to approved or published when their post does")
+
     d = sub.add_parser("draft-week", help="draft captions with Claude for a brand and week")
     d.add_argument("--brand", required=True)
     d.add_argument("--week", type=_date, required=True)
@@ -514,6 +539,60 @@ def main(argv: list[str] | None = None) -> int:
             for pid, probs in results:
                 print(f"post {pid}: " + ("ok" if not probs else "; ".join(probs)))
             print(f"checked {len(results)}, failed {len(failed)}")
+            return 0
+
+        if args.command == "video-add":
+            from .video_queue import QueueError, add_job
+            try:
+                print(f"video job {add_job(conn, args.brand, args.topic)} created")
+            except QueueError as exc:
+                print(str(exc), file=sys.stderr)
+                return 2
+            return 0
+
+        if args.command == "video-script":
+            from .video_queue import draft_script, set_manual_script
+            if args.text is not None:
+                print(set_manual_script(conn, cfg, args.id, args.text))
+                return 0
+            from .llm import client_from_keychain
+            from .secrets import KeychainStore as _KS
+            client = None if guard.dry_run else client_from_keychain(_KS())
+            print(draft_script(conn, cfg, args.id, client, guard))
+            return 0
+
+        if args.command == "video-approve-script":
+            from .video_queue import QueueError, approve_script, write_brief
+            try:
+                print(approve_script(conn, args.id, args.actor))
+            except QueueError as exc:
+                print(str(exc), file=sys.stderr)
+                return 3
+            if conn.execute("SELECT status FROM video_jobs WHERE id=?", (args.id,)).fetchone()[0] == "queued":
+                from .video_queue import DEFAULT_ROOT as _VR
+                path = write_brief(conn, cfg, args.id, _VR)
+                print(f"brief written: {path}")
+            return 0
+
+        if args.command == "video-produced":
+            from .video_queue import mark_produced
+            print(mark_produced(conn, args.id, args.file))
+            return 0
+
+        if args.command == "video-link":
+            from .video_queue import link_to_post
+            print(link_to_post(conn, args.id, args.post_id))
+            return 0
+
+        if args.command == "video-list":
+            for j in conn.execute("SELECT * FROM video_jobs WHERE brand_key=? ORDER BY id", (args.brand,)).fetchall():
+                post = f" post {j['post_id']}" if j["post_id"] else ""
+                print(f"{j['id']:>3} {j['status']:<10}{post} | {j['topic']}")
+            return 0
+
+        if args.command == "video-sync":
+            from .video_queue import sync_statuses
+            print(f"moved {sync_statuses(conn)} job(s)")
             return 0
 
         if args.command == "qa-week":

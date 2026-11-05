@@ -21,7 +21,7 @@ def test_migrate_via_cli(real_config_path, tmp_db, capsys):
     assert main(["--config", str(real_config_path), "--db", str(tmp_db), "migrate"]) == 0
     assert main(["--config", str(real_config_path), "--db", str(tmp_db), "migrate", "--down-to", "0"]) == 0
     out = capsys.readouterr().out
-    assert "applied: [1, 2, 3, 4, 5, 6, 7, 8, 9]" in out and "rolled back: [9, 8, 7, 6, 5, 4, 3, 2, 1]" in out
+    assert "applied: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]" in out and "rolled back: [10, 9, 8, 7, 6, 5, 4, 3, 2, 1]" in out
 
 
 def test_bad_config_exit_code(tmp_path, capsys):

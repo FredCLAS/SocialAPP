@@ -171,3 +171,23 @@ python -m socialops youtube-quota
 - Render: `python -m socialops --live visual-render --id 12` saves the PNG under `assets/<brand>/exports/` and runs the asset check.
 - Asset check on any image: `python -m socialops visual-check --brand clas_by_fred --week 2026-11-02`. Checks: 600px minimum side, 4:5 to 1.91:1 aspect, 10 KB to 8 MB, real PNG or JPEG.
 - A failed asset check blocks approval for that post until the file changes and the check passes. Checks are not yet required for every post; run `visual-check` before approving a week.
+
+## Zoice video queue (M8)
+
+Zoice has no confirmed API yet, so the queue is manual.
+
+```bash
+python -m socialops video-add --brand clas_by_fred --topic "HIPAA basics"
+python -m socialops --live video-script --id 3                 # Claude drafts a script (costs money)
+python -m socialops video-script --id 3 --text "..."           # or type your own
+python -m socialops video-approve-script --id 3 --actor pamela # queues a brief file
+# Make the video in Zoice, save it as the path shown in the brief, then:
+python -m socialops video-produced --id 3 --file assets/clas_by_fred/video_3.mp4
+python -m socialops video-link --id 3 --post-id 41             # attach to a Facebook or Instagram video post
+python -m socialops video-sync                                  # follows approval and publishing
+python -m socialops video-list --brand clas_by_fred
+```
+
+- Briefs are written to `~/Library/Application Support/SocialOps/zoice-queue/`.
+- Zoice output is AI-generated. Linked posts must carry the AI-generated label (QA checks it).
+- LinkedIn video is not built. Post it manually.

@@ -262,6 +262,28 @@ MIGRATIONS: tuple[Migration, ...] = (
         DROP TABLE visual_checks;
         """,
     ),
+    Migration(
+        version=10,
+        name="video_jobs",
+        up="""
+        CREATE TABLE video_jobs (
+            id              INTEGER PRIMARY KEY,
+            brand_key       TEXT NOT NULL REFERENCES brands(key),
+            topic           TEXT NOT NULL,
+            script          TEXT NOT NULL DEFAULT '',
+            script_source   TEXT,                          -- claude | manual
+            script_approved_by TEXT,
+            status          TEXT NOT NULL DEFAULT 'script'
+                            CHECK (status IN ('script','queued','produced','optimized','approved','published','failed')),
+            video_path      TEXT,                          -- relative to the SocialOps folder
+            post_id         INTEGER REFERENCES posts(id),
+            notes           TEXT NOT NULL DEFAULT '',
+            created_at      TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+            updated_at      TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+        );
+        """,
+        down="DROP TABLE video_jobs;",
+    ),
 )
 
 _SCHEMA_TABLE = """
