@@ -112,6 +112,64 @@ MIGRATIONS: tuple[Migration, ...] = (
         up="ALTER TABLE publish_log ADD COLUMN detail TEXT;",
         down="ALTER TABLE publish_log DROP COLUMN detail;",
     ),
+    Migration(
+        version=5,
+        name="agents_qa_gates",
+        up="""
+        CREATE TABLE approvals_new (
+            id          INTEGER PRIMARY KEY,
+            kind        TEXT NOT NULL CHECK (kind IN
+                        ('post','reply','cold_send','boost','visibility','connect','qualification')),
+            ref_id      INTEGER NOT NULL,
+            decided_by  TEXT NOT NULL,
+            decided_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+            decision    TEXT NOT NULL CHECK (decision IN ('approved','rejected'))
+        );
+        INSERT INTO approvals_new (id, kind, ref_id, decided_by, decided_at, decision)
+            SELECT id, kind, ref_id, decided_by, decided_at, decision FROM approvals;
+        DROP TABLE approvals;
+        ALTER TABLE approvals_new RENAME TO approvals;
+
+        CREATE TABLE agent_runs (
+            id          INTEGER PRIMARY KEY,
+            agent       TEXT NOT NULL,
+            status      TEXT NOT NULL CHECK (status IN ('ok','blocked','held','skipped','error')),
+            reason      TEXT NOT NULL DEFAULT '',
+            refs        TEXT NOT NULL DEFAULT '[]',
+            dry_run     INTEGER NOT NULL DEFAULT 1,
+            started_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+            finished_at TEXT
+        );
+
+        CREATE TABLE qa_results (
+            id          INTEGER PRIMARY KEY,
+            post_id     INTEGER NOT NULL REFERENCES posts(id),
+            fingerprint TEXT NOT NULL,
+            passed      INTEGER NOT NULL CHECK (passed IN (0,1)),
+            failures    TEXT NOT NULL DEFAULT '[]',
+            checked_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+        );
+        CREATE INDEX qa_results_post ON qa_results (post_id, id);
+        """,
+        down="""
+        DROP INDEX qa_results_post;
+        DROP TABLE qa_results;
+        DROP TABLE agent_runs;
+        DELETE FROM approvals WHERE kind NOT IN ('post','reply','cold_send','boost');
+        CREATE TABLE approvals_old (
+            id          INTEGER PRIMARY KEY,
+            kind        TEXT NOT NULL CHECK (kind IN ('post','reply','cold_send','boost')),
+            ref_id      INTEGER NOT NULL,
+            decided_by  TEXT NOT NULL,
+            decided_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+            decision    TEXT NOT NULL CHECK (decision IN ('approved','rejected'))
+        );
+        INSERT INTO approvals_old (id, kind, ref_id, decided_by, decided_at, decision)
+            SELECT id, kind, ref_id, decided_by, decided_at, decision FROM approvals;
+        DROP TABLE approvals;
+        ALTER TABLE approvals_old RENAME TO approvals;
+        """,
+    ),
 )
 
 _SCHEMA_TABLE = """

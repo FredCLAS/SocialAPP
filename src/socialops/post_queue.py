@@ -117,6 +117,32 @@ def list_posts(
     return [_row_to_post(r) for r in conn.execute(sql, args).fetchall()]
 
 
+def fingerprint(post: Post) -> str:
+    """Hash of everything a QA result depends on. Any edit changes it."""
+    import hashlib
+
+    payload = json.dumps(
+        [post.subject, post.visual_path, post.visual_source, post.caption, list(post.hashtags),
+         post.cta_url, post.platform, post.format, post.content_type, post.scheduled_at],
+        sort_keys=True,
+    )
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def qa_problems(conn: sqlite3.Connection, post: Post) -> list[str]:
+    """Approval requires the latest QA run to pass for the current content."""
+    row = conn.execute(
+        "SELECT fingerprint, passed FROM qa_results WHERE post_id = ? ORDER BY id DESC LIMIT 1", (post.id,)
+    ).fetchone()
+    if row is None:
+        return ["QA has not run; run qa-week first"]
+    if row["fingerprint"] != fingerprint(post):
+        return ["content changed since QA; run qa-week again"]
+    if not row["passed"]:
+        return ["QA failed; fix the flagged checks"]
+    return []
+
+
 def completeness_problems(post: Post) -> list[str]:
     problems = []
     if not post.visual_path:
@@ -151,7 +177,7 @@ def transition(conn: sqlite3.Connection, post_id: int, new_status: str, actor: s
             if actor is None:
                 raise UnauthorizedApprover("approval needs an actor")
             _check_actor(actor)
-            problems = completeness_problems(post)
+            problems = completeness_problems(post) + qa_problems(conn, post)
             if problems:
                 raise NotApprovable(post_id, problems)
             conn.execute(
@@ -167,7 +193,7 @@ def approve_week(conn: sqlite3.Connection, cfg: Config, brand_key: str, week_sta
     _check_actor(actor)
     start, end = week_bounds_utc(week_start, cfg.timezone)
     drafts = list_posts(conn, brand_key=brand_key, status="draft", scheduled_from=start, scheduled_to=end)
-    failures = {p.id: completeness_problems(p) for p in drafts}
+    failures = {p.id: completeness_problems(p) + qa_problems(conn, p) for p in drafts}
     failures = {pid: probs for pid, probs in failures.items() if probs}
     if failures:
         first = next(iter(failures))

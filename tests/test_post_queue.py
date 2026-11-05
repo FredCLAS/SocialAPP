@@ -18,6 +18,11 @@ from socialops.post_queue import (
 
 MONDAY = date(2026, 11, 2)
 
+from pathlib import Path as _P
+from socialops.config import load_config as _load
+from socialops.qa import check_post as _check
+_CFG = _load(_P(__file__).resolve().parents[1] / "config" / "brands.toml")
+
 
 @pytest.fixture
 def cfg(real_config_path):
@@ -34,11 +39,18 @@ def conn(tmp_db, cfg):
 
 
 def complete(conn, post_id):
+    result = _complete(conn, post_id)
+    _check(conn, _CFG, post_id)
+    return result
+
+
+def _complete(conn, post_id):
     fields = dict(
+        subject="HIPAA risk assessment basics",
         visual_path=f"assets/clas_by_fred/{post_id}.png",
         visual_source="canva",
-        caption="Hook sentence. Value follows. Call to action: classbyfred.com",
-        hashtags=["#HIPAA", "#healthcarecompliance"],
+        caption="Hook sentence. Value follows. Call to action: https://classbyfred.com",
+        hashtags=["#HIPAA", "#healthcarecompliance", "#privacy"],
         cta_url="https://classbyfred.com",
     )
     return set_post_fields(conn, post_id, **fields)
@@ -54,18 +66,22 @@ def first_post(conn, brand="clas_by_fred"):
 
 def test_missing_visual_source_blocks_approval(conn):
     post = first_post(conn)
-    set_post_fields(conn, post.id, visual_path="a.png", caption="c", hashtags=["#x"], cta_url="https://classbyfred.com")
+    set_post_fields(conn, post.id, visual_path="a.png", caption="c", hashtags=["#xxx","#yyy","#zzz"], cta_url="https://classbyfred.com")
     with pytest.raises(NotApprovable, match="visual source"):
         transition(conn, post.id, "approved", actor="pamela")
 
 
 def test_ai_visual_needs_label(conn):
     post = first_post(conn)
-    set_post_fields(conn, post.id, visual_path="a.png", visual_source="ai",
-                    caption="A lovely painting.", hashtags=["#art"], cta_url="https://pamelapatton.art")
-    with pytest.raises(NotApprovable, match="labeled"):
+    base = dict(subject="Harbor at dusk", visual_path="a.png", visual_source="ai",
+                hashtags=["#art", "#harbor", "#oils"], cta_url="https://classbyfred.com")
+    set_post_fields(conn, post.id, caption="A lovely painting. Look closer. See https://classbyfred.com", **base)
+    result = _check(conn, _CFG, post.id)
+    assert not result.passed and any(c.name == "ai_label" for c in result.failures)
+    with pytest.raises(NotApprovable, match="QA failed"):
         transition(conn, post.id, "approved", actor="pamela")
-    set_post_fields(conn, post.id, caption="AI-generated illustration of a harbor. Shop at pamelapatton.art")
+    set_post_fields(conn, post.id, caption="AI-generated illustration of a harbor. Soft light on the water. See https://classbyfred.com")
+    assert _check(conn, _CFG, post.id).passed
     assert transition(conn, post.id, "approved", actor="pamela").status == "approved"
 
 
@@ -155,7 +171,7 @@ def test_unapprove_then_edit(conn):
 def test_webinar_cta_needs_url(conn):
     post = list_posts(conn, brand_key="clas_by_fred", status="draft")
     target = next(p for p in post if p.content_type == "webinar_cta")
-    set_post_fields(conn, target.id, visual_path="a.png", caption="c", hashtags=["#x"])
+    set_post_fields(conn, target.id, visual_path="a.png", caption="c", hashtags=["#xxx","#yyy","#zzz"])
     with pytest.raises(NotApprovable, match="cta_url"):
         transition(conn, target.id, "approved", actor="pamela")
 

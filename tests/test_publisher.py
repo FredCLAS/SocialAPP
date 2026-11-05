@@ -22,6 +22,11 @@ from socialops.publisher import (
 from socialops.secrets import MemorySecretStore, service_name
 
 MONDAY = date(2026, 11, 2)
+
+from pathlib import Path as _P
+from socialops.config import load_config as _load
+from socialops.qa import check_post as _check
+_CFG = _load(_P(__file__).resolve().parents[1] / "config" / "brands.toml")
 DUE_NOW = datetime(2026, 11, 2, 23, 0, tzinfo=timezone.utc)   # after Mon 08:30 EST posts
 EARLY = datetime(2026, 11, 2, 12, 0, tzinfo=timezone.utc)     # before them
 FAR_FUTURE = 9_999_999_999
@@ -77,9 +82,10 @@ def store():
 def ready(conn, cfg, brand="clas_by_fred", platform="facebook", fmt="image", visual="assets/clas_by_fred/a.png"):
     post = next(p for p in list_posts(conn, brand_key=brand, status="draft") if p.platform == platform)
     set_post_fields(conn, post.id, subject="HIPAA basics", visual_path=visual, visual_source="canva",
-                    caption="Hook. Value. Read more.", hashtags=["#HIPAA", "#compliance"],
+                    caption=f"Hook. Value. Read more at {cfg.brands[brand].website}", hashtags=["#HIPAA", "#compliance", "#privacy"],
                     cta_url=cfg.brands[brand].website)
     conn.execute("UPDATE posts SET format=? WHERE id=?", (fmt, post.id))
+    _check(conn, _CFG, post.id)
     transition(conn, post.id, "approved", actor="pamela")
     transition(conn, post.id, "scheduled")
     return post.id
@@ -93,7 +99,7 @@ def log_rows(conn, post_id):
 
 def test_caption_text_joins_caption_and_hashtags(conn, cfg):
     pid = ready(conn, cfg)
-    assert caption_text(get_post(conn, pid)) == "Hook. Value. Read more.\n\n#HIPAA #compliance"
+    assert caption_text(get_post(conn, pid)) == f"Hook. Value. Read more at {cfg.brands['clas_by_fred'].website}\n\n#HIPAA #compliance #privacy"
 
 
 def test_media_url_encodes_and_checks_path():

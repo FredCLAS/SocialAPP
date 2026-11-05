@@ -83,3 +83,15 @@ Setup, per Mac, run by the person who owns the Page/IG account (Pamela):
 Flow: `approve-week` (human) -> `schedule-week` -> `publish-due` (dry-run by default; add `--live` to publish).
 
 Safety: each publish is logged before the network call. Timeouts and 5xx on a POST are marked `unknown` and block retries, because the post may already be live. Check Meta before clearing those rows.
+
+## Agents and QA (M4)
+
+```bash
+python -m socialops qa-week --brand clas_by_fred --week 2026-11-02   # runs the pre-post checklist on drafts
+python -m socialops run-agents --brand clas_by_fred --week 2026-11-02 # QA, then publish due posts (dry-run by default)
+```
+
+- QA results are stored per content fingerprint. Editing a post after QA requires QA to run again before approval.
+- Each agent run is logged in `agent_runs`. A failed agent is logged and does not stop the others.
+- The orchestrator stops at the first agent that is held waiting for a human.
+- Link checks run only in live mode, as read-only requests.

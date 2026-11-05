@@ -93,6 +93,15 @@ def build_parser() -> argparse.ArgumentParser:
     ts.add_argument("--brand", required=True)
     ts.add_argument("--platform", required=True)
 
+    qw = sub.add_parser("qa-week", help="run the pre-post checklist on a week's drafts")
+    qw.add_argument("--brand", required=True)
+    qw.add_argument("--week", type=_date, required=True)
+
+    ra = sub.add_parser("run-agents", help="run the agent pipeline for a brand and week")
+    ra.add_argument("--brand", required=True)
+    ra.add_argument("--week", type=_date, required=True)
+    ra.add_argument("--now", default=None, help="ISO time for testing; default is current UTC")
+
     d = sub.add_parser("draft-week", help="draft captions with Claude for a brand and week")
     d.add_argument("--brand", required=True)
     d.add_argument("--week", type=_date, required=True)
@@ -163,6 +172,11 @@ def _auth(args, cfg, guard: Guard) -> int:
     return 0
 
 
+def _now(value: str | None = None):
+    from datetime import datetime, timezone
+    return datetime.fromisoformat(value) if value else datetime.now(timezone.utc)
+
+
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
@@ -222,6 +236,25 @@ def main(argv: list[str] | None = None) -> int:
             for p in posts:
                 print(f"{p.scheduled_at}  {p.platform:<10} {p.content_type:<14} {p.format:<5} {p.status}")
             print(f"{len(posts)} posts")
+            return 0
+
+        if args.command == "qa-week":
+            from .builtin_agents import QaAgent
+            from .agents import Context, run_logged
+            ctx = Context(conn=conn, cfg=cfg, guard=guard, now=_now(), fetch_status=None)
+            res = run_logged(QaAgent(args.brand, args.week), ctx)
+            print(f"{res.status}: {res.reason}")
+            return 0 if res.status == "ok" else 1
+
+        if args.command == "run-agents":
+            from .agents import Context
+            from .builtin_agents import PublishAgent, QaAgent
+            from .orchestrator import run_agents
+            from .secrets import KeychainStore as _KS
+            store = None if guard.dry_run else _KS()
+            ctx = Context(conn=conn, cfg=cfg, guard=guard, now=_now(args.now), store=store)
+            for name, res in run_agents([QaAgent(args.brand, args.week), PublishAgent()], ctx):
+                print(f"{name}: {res.status}" + (f" ({res.reason})" if res.reason else ""))
             return 0
 
         if args.command == "schedule-week":
