@@ -9,6 +9,8 @@ client_id = "REPLACE_WITH_CANVA_CLIENT_ID"
 authorize_url = "https://www.canva.com/api/oauth/authorize"
 token_url = "https://api.canva.com/rest/v1/oauth/token"
 redirect_port = 8765
+api_base = "https://api.canva.com/rest/v1"
+api_verified = false   # flip to true only after checking the autofill/export paths in visual.py against Canva's docs
 scopes = ["design:content:read", "design:content:write", "design:meta:read", "asset:write", "brandtemplate:meta:read", "brandtemplate:content:read", "folder:read"]
 
 [meta]
@@ -39,6 +41,8 @@ display_name = "CLAS by Fred"
 website = "https://classbyfred.com"
 outreach_sender = "fred@clasbyfred.com"   # cold email only; Microsoft 365 on clasbyfred.com (confirm domain is owned)
 assets_subdir = "clas_by_fred"
+canva_template_id = "REPLACE_CANVA_TEMPLATE_ID"   # Canva brand template for CLAS image posts
+canva_fields = { headline = "subject", hook = "hook", cta = "cta" }
 
   [brands.clas_by_fred.platforms.facebook]
   account_id = "REPLACE_CLAS_FB_PAGE_ID"

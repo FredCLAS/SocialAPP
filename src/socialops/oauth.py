@@ -40,6 +40,8 @@ class CanvaOAuthConfig:
     authorize_url: str
     token_url: str
     redirect_port: int = 8765
+    api_base: str = "https://api.canva.com/rest/v1"
+    api_verified: bool = False  # set true only after the endpoint paths are checked against Canva's docs
 
     @property
     def redirect_uri(self) -> str:

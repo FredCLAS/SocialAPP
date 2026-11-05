@@ -130,7 +130,12 @@ def fingerprint(post: Post) -> str:
 
 
 def qa_problems(conn: sqlite3.Connection, post: Post) -> list[str]:
-    """Approval requires the latest QA run to pass for the current content."""
+    """Approval requires the latest QA run to pass for the current content, and no failed asset check."""
+    asset = conn.execute(
+        "SELECT fingerprint, passed, problems FROM visual_checks WHERE post_id = ? ORDER BY id DESC LIMIT 1",
+        (post.id,)).fetchone()
+    if asset is not None and asset["fingerprint"] == fingerprint(post) and not asset["passed"]:
+        return [f"asset check failed: {p}" for p in json.loads(asset["problems"])]
     row = conn.execute(
         "SELECT fingerprint, passed FROM qa_results WHERE post_id = ? ORDER BY id DESC LIMIT 1", (post.id,)
     ).fetchone()

@@ -243,6 +243,25 @@ MIGRATIONS: tuple[Migration, ...] = (
         DROP TABLE webinars;
         """,
     ),
+    Migration(
+        version=9,
+        name="visual_checks",
+        up="""
+        CREATE TABLE visual_checks (
+            id          INTEGER PRIMARY KEY,
+            post_id     INTEGER NOT NULL REFERENCES posts(id),
+            fingerprint TEXT NOT NULL,
+            passed      INTEGER NOT NULL CHECK (passed IN (0,1)),
+            problems    TEXT NOT NULL DEFAULT '[]',
+            checked_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+        );
+        CREATE INDEX visual_checks_post ON visual_checks (post_id, id);
+        """,
+        down="""
+        DROP INDEX visual_checks_post;
+        DROP TABLE visual_checks;
+        """,
+    ),
 )
 
 _SCHEMA_TABLE = """

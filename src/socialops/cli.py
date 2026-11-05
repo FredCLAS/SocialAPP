@@ -182,6 +182,13 @@ def build_parser() -> argparse.ArgumentParser:
 
     sub.add_parser("youtube-quota", help="show today's YouTube quota use")
 
+    vr = sub.add_parser("visual-render", help="render a post's Canva template to PNG (live, after verification)")
+    vr.add_argument("--id", type=int, required=True)
+
+    vc = sub.add_parser("visual-check", help="check image files for a brand and week (size, format, aspect)")
+    vc.add_argument("--brand", required=True)
+    vc.add_argument("--week", type=_date, required=True)
+
     d = sub.add_parser("draft-week", help="draft captions with Claude for a brand and week")
     d.add_argument("--brand", required=True)
     d.add_argument("--week", type=_date, required=True)
@@ -485,6 +492,28 @@ def main(argv: list[str] | None = None) -> int:
             day = quota_day(datetime.now(_tz.utc))
             used = used_today(conn, day)
             print(f"{day} (Pacific): {used} of {DAILY_QUOTA} units used")
+            return 0
+
+        if args.command == "visual-render":
+            from .visual import CanvaHttp, DEFAULT_ROOT, render_post
+            from .oauth import CanvaTokens
+            from .secrets import KeychainStore as _KS
+            canva = None
+            if not guard.dry_run:
+                store = _KS()
+                tokens = CanvaTokens(store, cfg.canva)
+                canva = CanvaHttp(cfg.canva.api_base, tokens.valid_access_token)
+            r = render_post(conn, cfg, args.id, canva, guard, DEFAULT_ROOT)
+            print(f"{r.status}" + (f": {r.detail}" if r.detail else ""))
+            return 0 if r.status in ("rendered", "would_render") else 1
+
+        if args.command == "visual-check":
+            from .visual import DEFAULT_ROOT, check_visuals
+            results = check_visuals(conn, cfg, args.brand, args.week, DEFAULT_ROOT)
+            failed = [pid for pid, probs in results if probs]
+            for pid, probs in results:
+                print(f"post {pid}: " + ("ok" if not probs else "; ".join(probs)))
+            print(f"checked {len(results)}, failed {len(failed)}")
             return 0
 
         if args.command == "qa-week":

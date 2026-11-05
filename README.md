@@ -163,3 +163,11 @@ python -m socialops youtube-quota
 - Quota: uploads cost 1,600 units, visibility changes 50. The app stops at 90% of the daily 10,000.
 - Going public needs your approval, recorded separately from the upload.
 - Replays are never uploaded automatically. Run `replay-upload` yourself.
+
+## Visuals (M7)
+
+- Canva rendering needs: the brand's `canva_template_id` in `brands.toml`, the field mapping (`canva_fields`), and `[canva] api_verified = true` after the endpoint paths in `src/socialops/visual.py` are checked against Canva's developer docs. Until then rendering refuses to run.
+- Your own Canva login: `python -m socialops auth canva` on your Mac (see the Canva section above).
+- Render: `python -m socialops --live visual-render --id 12` saves the PNG under `assets/<brand>/exports/` and runs the asset check.
+- Asset check on any image: `python -m socialops visual-check --brand clas_by_fred --week 2026-11-02`. Checks: 600px minimum side, 4:5 to 1.91:1 aspect, 10 KB to 8 MB, real PNG or JPEG.
+- A failed asset check blocks approval for that post until the file changes and the check passes. Checks are not yet required for every post; run `visual-check` before approving a week.

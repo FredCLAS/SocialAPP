@@ -50,6 +50,8 @@ class Brand:
     platforms: dict[str, PlatformCadence]
     outreach_sender: str | None = None
     contact_email: str | None = None
+    canva_template_id: str | None = None
+    canva_fields: tuple[tuple[str, str], ...] = ()  # (template field name, post attribute)
 
 
 @dataclass(frozen=True)
@@ -175,6 +177,8 @@ def _parse_brand(key: str, raw: dict) -> Brand:
         platforms=platforms,
         outreach_sender=sender,
         contact_email=str(contact) if contact is not None else None,
+        canva_template_id=str(raw["canva_template_id"]) if raw.get("canva_template_id") else None,
+        canva_fields=tuple((str(k), str(v)) for k, v in raw.get("canva_fields", {}).items()),
     )
 
 
@@ -225,6 +229,8 @@ def parse_config(data: dict) -> Config:
             authorize_url=str(_require(canva_raw, "authorize_url", "canva")),
             token_url=str(_require(canva_raw, "token_url", "canva")),
             redirect_port=int(canva_raw.get("redirect_port", 8765)),
+            api_base=str(canva_raw.get("api_base", "https://api.canva.com/rest/v1")),
+            api_verified=bool(canva_raw.get("api_verified", False)),
         )
 
     meta_raw = data.get("meta", {})
