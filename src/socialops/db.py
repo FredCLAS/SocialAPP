@@ -176,6 +176,45 @@ MIGRATIONS: tuple[Migration, ...] = (
         up="ALTER TABLE approvals ADD COLUMN note TEXT;",
         down="ALTER TABLE approvals DROP COLUMN note;",
     ),
+    Migration(
+        version=7,
+        name="engagement_inbox",
+        up="""
+        CREATE TABLE inbound_items (
+            id           INTEGER PRIMARY KEY,
+            brand_key    TEXT NOT NULL REFERENCES brands(key),
+            platform     TEXT NOT NULL,
+            post_id      INTEGER REFERENCES posts(id),
+            source_id    TEXT NOT NULL UNIQUE,            -- platform comment id
+            author_ref   TEXT,                             -- platform user id only; no names stored
+            body         TEXT NOT NULL,
+            category     TEXT NOT NULL DEFAULT 'unclassified',
+            escalate     INTEGER NOT NULL DEFAULT 0 CHECK (escalate IN (0,1)),
+            reply_text   TEXT,
+            reply_source TEXT,                             -- bank | claude | manual
+            reply_status TEXT NOT NULL DEFAULT 'none'
+                         CHECK (reply_status IN ('none','drafted','approved','rejected','sent','failed')),
+            reply_sent_id TEXT,
+            received_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+            updated_at   TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+        );
+        CREATE INDEX inbound_brand_status ON inbound_items (brand_key, reply_status);
+
+        CREATE TABLE approved_answers (
+            id          INTEGER PRIMARY KEY,
+            topic       TEXT NOT NULL,
+            keywords    TEXT NOT NULL,                     -- JSON list of lowercase words
+            answer      TEXT NOT NULL,
+            approved_by TEXT NOT NULL,
+            approved_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+        );
+        """,
+        down="""
+        DROP TABLE approved_answers;
+        DROP INDEX inbound_brand_status;
+        DROP TABLE inbound_items;
+        """,
+    ),
 )
 
 _SCHEMA_TABLE = """

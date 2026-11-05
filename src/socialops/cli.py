@@ -114,6 +114,39 @@ def build_parser() -> argparse.ArgumentParser:
     isc = sub.add_parser("install-schedule", help="write the launchd job that runs run-due every 5 minutes")
     isc.add_argument("--dest", type=Path, default=None, help="folder for the plist (default ~/Library/LaunchAgents)")
 
+    ep = sub.add_parser("engagement-pull", help="read new comments on recent posts and classify them (live only)")
+    ep.add_argument("--brand", required=True)
+    ep.add_argument("--now", default=None)
+
+    rdr = sub.add_parser("reply-draft", help="draft replies for new comments (answer bank, then Claude)")
+    rdr.add_argument("--brand", required=True)
+
+    rl = sub.add_parser("reply-list", help="list comments and reply status for a brand")
+    rl.add_argument("--brand", required=True)
+    rl.add_argument("--status", default=None)
+
+    ra2 = sub.add_parser("reply-approve", help="approve a drafted reply (exact text)")
+    ra2.add_argument("--id", type=int, required=True)
+    ra2.add_argument("--actor", required=True)
+
+    rr = sub.add_parser("reply-reject", help="reject a drafted reply with a reason")
+    rr.add_argument("--id", type=int, required=True)
+    rr.add_argument("--actor", required=True)
+    rr.add_argument("--reason", required=True)
+
+    re_ = sub.add_parser("reply-edit", help="replace a reply's text (approval must be given again)")
+    re_.add_argument("--id", type=int, required=True)
+    re_.add_argument("--text", required=True)
+
+    rs = sub.add_parser("reply-send", help="send approved replies (dry-run by default)")
+    rs.add_argument("--brand", required=True)
+
+    aa = sub.add_parser("answer-add", help="add an approved answer to the bank")
+    aa.add_argument("--topic", required=True)
+    aa.add_argument("--keywords", required=True, help="comma-separated words that trigger it")
+    aa.add_argument("--answer", required=True)
+    aa.add_argument("--actor", required=True)
+
     d = sub.add_parser("draft-week", help="draft captions with Claude for a brand and week")
     d.add_argument("--brand", required=True)
     d.add_argument("--week", type=_date, required=True)
@@ -274,6 +307,78 @@ def main(argv: list[str] | None = None) -> int:
             print(f"wrote {target} ({mode})")
             print("load it:   launchctl bootstrap gui/$(id -u) " + str(target))
             print("stop it:   launchctl bootout gui/$(id -u)/com.socialops.run-due")
+            return 0
+
+        if args.command == "engagement-pull":
+            from .engagement import pull_comments
+            from .secrets import KeychainStore as _KS
+            if guard.dry_run:
+                print("dry-run: pull needs live mode")
+                return 0
+            res = pull_comments(conn, cfg, args.brand, _KS(), guard, _now(args.now))
+            print(f"{res.status}: {res.reason}")
+            return 0 if res.status in ("ok", "blocked") else 1
+
+        if args.command == "reply-draft":
+            from .engagement import draft_reply
+            from .llm import client_from_keychain
+            from .secrets import KeychainStore as _KS
+            client = None if guard.dry_run else client_from_keychain(_KS())
+            ids = [r["id"] for r in conn.execute(
+                "SELECT id FROM inbound_items WHERE brand_key=? AND reply_status IN ('none','rejected') "
+                "AND escalate=0 ORDER BY id", (args.brand,)).fetchall()]
+            for i in ids:
+                print(f"{i}: {draft_reply(conn, cfg, i, client, guard)}")
+            return 0
+
+        if args.command == "reply-list":
+            sql = "SELECT * FROM inbound_items WHERE brand_key=?"
+            params = [args.brand]
+            if args.status:
+                sql += " AND reply_status=?"
+                params.append(args.status)
+            for r in conn.execute(sql + " ORDER BY id", params).fetchall():
+                flag = " ESCALATE" if r["escalate"] else ""
+                body = " ".join(r["body"].split())[:90]
+                print(f"{r['id']:>4} {r['platform']:<9} {r['category']:<9} {r['reply_status']:<9}{flag} | {body}")
+                if r["reply_text"]:
+                    print(f"       reply ({r['reply_source']}): {r['reply_text']}")
+            return 0
+
+        if args.command == "reply-approve":
+            from .engagement import approve_reply
+            print(approve_reply(conn, args.id, args.actor))
+            return 0
+
+        if args.command == "reply-reject":
+            from .engagement import reject_reply
+            print(reject_reply(conn, args.id, args.actor, args.reason))
+            return 0
+
+        if args.command == "reply-edit":
+            from .engagement import edit_reply
+            print(edit_reply(conn, cfg, args.id, args.text))
+            return 0
+
+        if args.command == "reply-send":
+            from .engagement import send_approved
+            from .secrets import KeychainStore as _KS
+            store = None if guard.dry_run else _KS()
+            for line in send_approved(conn, cfg, args.brand, store, guard):
+                print(line)
+            return 0
+
+        if args.command == "answer-add":
+            from .post_queue import APPROVERS
+            if args.actor not in APPROVERS:
+                print(f"{args.actor!r} is not an approver", file=sys.stderr)
+                return 3
+            with conn:
+                import json as _json
+                words = [w.strip().lower() for w in args.keywords.split(",") if w.strip()]
+                conn.execute("INSERT INTO approved_answers (topic, keywords, answer, approved_by) VALUES (?, ?, ?, ?)",
+                             (args.topic, _json.dumps(words), args.answer, args.actor))
+            print("answer added")
             return 0
 
         if args.command == "qa-week":

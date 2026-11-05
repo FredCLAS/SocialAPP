@@ -131,3 +131,17 @@ def publish_ig_reel(g: MetaGraph, ig_id: str, video_url: str, caption: str,
                                            "caption": caption})["id"]
     _wait_for_container(g, container, sleep, max_polls, interval)
     return g.post(f"{ig_id}/media_publish", {"creation_id": container})["id"]
+
+
+# --- engagement (read comments, reply to a comment) ----------------------------
+
+def list_comments(g: MetaGraph, object_id: str, limit: int = 100) -> list[dict]:
+    """Comments on a post (FB page post or IG media). Read-only."""
+    body = g.get(f"{object_id}/comments", {"fields": "id,message,text,timestamp,created_time,from{id},username",
+                                           "limit": str(limit)})
+    return body.get("data", [])
+
+
+def reply_to_comment(g: MetaGraph, comment_id: str, message: str) -> str:
+    """Post a reply under a comment. Call only after a reply approval."""
+    return g.post(f"{comment_id}/replies", {"message": message})["id"]

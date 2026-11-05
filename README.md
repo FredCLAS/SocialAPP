@@ -122,3 +122,19 @@ launchctl bootout gui/$(id -u)/com.socialops.run-due   # stop it
 - Approved posts more than 6 hours past their slot are not scheduled automatically. Reschedule or re-approve them.
 - Runs never overlap (file lock). Logs: `~/Library/Logs/SocialOps/run-due.*.log`.
 - Install writes the job file only. Nothing runs until you load it with `launchctl`.
+
+## Engagement and replies (M5)
+
+```bash
+python -m socialops answer-add --topic pricing --keywords "price,cost" --answer "..." --actor pamela   # approved answer bank
+python -m socialops --live engagement-pull --brand clas_by_fred     # read new comments on recent posts (read-only)
+python -m socialops reply-draft --brand clas_by_fred                # answer bank first, then Claude
+python -m socialops reply-list --brand clas_by_fred                 # review what's there
+python -m socialops reply-approve --id 12 --actor pamela            # approves the exact text shown
+python -m socialops --live reply-send --brand clas_by_fred          # sends approved replies only
+```
+
+- Comments are read, never liked, hidden, or followed. Legal, complaint, and refund topics are escalated and get no draft. Spam gets no draft.
+- Editing a reply after approval means approving it again before it can send.
+- A failed send is marked `failed` and not retried automatically. Daily cap: 20 per brand.
+- Direct messages are not built yet. They need Meta messaging permission, which needs app review.
