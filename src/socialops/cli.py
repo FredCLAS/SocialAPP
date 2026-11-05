@@ -147,6 +147,41 @@ def build_parser() -> argparse.ArgumentParser:
     aa.add_argument("--answer", required=True)
     aa.add_argument("--actor", required=True)
 
+    wa = sub.add_parser("webinar-add", help="create a webinar (local time, e.g. 2026-12-02T19:00)")
+    wa.add_argument("--brand", required=True)
+    wa.add_argument("--title", required=True)
+    wa.add_argument("--starts", required=True, type=lambda v: datetime.fromisoformat(v))
+    wa.add_argument("--duration", type=int, default=60)
+    wa.add_argument("--registration-url", required=True)
+    wa.add_argument("--calendly-url", required=True)
+
+    wp = sub.add_parser("webinar-promote", help="attach promo posts to the 3 weeks before a webinar")
+    wp.add_argument("--id", type=int, required=True)
+
+    wl = sub.add_parser("webinar-list", help="list webinars, status, replay, and overdue flags")
+    wl.add_argument("--brand", required=True)
+
+    wst = sub.add_parser("webinar-status", help="set live, replay_pending, or cancelled")
+    wst.add_argument("--id", type=int, required=True)
+    wst.add_argument("--status", required=True)
+
+    wrf = sub.add_parser("webinar-replay-file", help="set the replay file (relative to the brand assets) and chapters")
+    wrf.add_argument("--id", type=int, required=True)
+    wrf.add_argument("--file", required=True)
+    wrf.add_argument("--chapters", required=True, help='"00:00 Intro|05:12 Topic|12:40 Close"')
+
+    ru = sub.add_parser("replay-upload", help="upload replay to YouTube as PRIVATE (live only)")
+    ru.add_argument("--id", type=int, required=True)
+
+    ra3 = sub.add_parser("replay-approve-public", help="record approval to make a replay public")
+    ra3.add_argument("--id", type=int, required=True)
+    ra3.add_argument("--actor", required=True)
+
+    rp = sub.add_parser("replay-publish-public", help="make an approved replay public (live only)")
+    rp.add_argument("--id", type=int, required=True)
+
+    sub.add_parser("youtube-quota", help="show today's YouTube quota use")
+
     d = sub.add_parser("draft-week", help="draft captions with Claude for a brand and week")
     d.add_argument("--brand", required=True)
     d.add_argument("--week", type=_date, required=True)
@@ -379,6 +414,77 @@ def main(argv: list[str] | None = None) -> int:
                 conn.execute("INSERT INTO approved_answers (topic, keywords, answer, approved_by) VALUES (?, ?, ?, ?)",
                              (args.topic, _json.dumps(words), args.answer, args.actor))
             print("answer added")
+            return 0
+
+        if args.command == "webinar-add":
+            from .webinar import create_webinar
+            try:
+                wid = create_webinar(conn, cfg, args.brand, args.title, args.starts, args.registration_url,
+                                     args.calendly_url, args.duration)
+            except ValueError as exc:
+                print(f"not created: {exc}", file=sys.stderr)
+                return 2
+            print(f"webinar {wid} created")
+            return 0
+
+        if args.command == "webinar-promote":
+            from .webinar import attach_promotions
+            r = attach_promotions(conn, cfg, args.id)
+            print(f"attached {r['attached']} promo posts" + (f" ({r['note']})" if r["note"] else ""))
+            return 0
+
+        if args.command == "webinar-list":
+            from .webinar import overdue
+            from datetime import timezone as _tz
+            now = datetime.now(_tz.utc)
+            for w in conn.execute("SELECT * FROM webinars WHERE brand_key=? ORDER BY starts_at", (args.brand,)).fetchall():
+                flag = " OVERDUE" if overdue(conn, w["id"], now) else ""
+                replay = w["replay_youtube_id"] or "-"
+                print(f"{w['id']:>3} {w['starts_at']} {w['status']:<16} replay {replay}{flag} | {w['title']}")
+            return 0
+
+        if args.command == "webinar-status":
+            from .webinar import set_status
+            try:
+                set_status(conn, args.id, args.status)
+            except ValueError as exc:
+                print(str(exc), file=sys.stderr)
+                return 2
+            print("updated")
+            return 0
+
+        if args.command == "webinar-replay-file":
+            from .webinar import set_replay_file
+            chapters = [c.strip().split(" ", 1) for c in args.chapters.split("|") if c.strip()]
+            chapters = [[c[0], c[1] if len(c) > 1 else ""] for c in chapters]
+            set_replay_file(conn, args.id, args.file, chapters)
+            print("replay file set")
+            return 0
+
+        if args.command in ("replay-upload", "replay-publish-public"):
+            from datetime import timezone as _tz
+            from .youtube import YouTubeHttp, publish_public, upload_replay
+            from .secrets import KeychainStore as _KS
+            store = None if guard.dry_run else _KS()
+            now = datetime.now(_tz.utc)
+            if args.command == "replay-upload":
+                r = upload_replay(conn, cfg, args.id, YouTubeHttp(), store, guard, now)
+            else:
+                r = publish_public(conn, args.id, YouTubeHttp(), store, guard, now)
+            print(f"{r.status}" + (f": {r.detail}" if r.detail else ""))
+            return 0
+
+        if args.command == "replay-approve-public":
+            from .youtube import approve_public
+            print(approve_public(conn, args.id, args.actor))
+            return 0
+
+        if args.command == "youtube-quota":
+            from datetime import timezone as _tz
+            from .youtube import DAILY_QUOTA, quota_day, used_today
+            day = quota_day(datetime.now(_tz.utc))
+            used = used_today(conn, day)
+            print(f"{day} (Pacific): {used} of {DAILY_QUOTA} units used")
             return 0
 
         if args.command == "qa-week":

@@ -215,6 +215,34 @@ MIGRATIONS: tuple[Migration, ...] = (
         DROP TABLE inbound_items;
         """,
     ),
+    Migration(
+        version=8,
+        name="webinars_and_replays",
+        up="""
+        CREATE TABLE webinars (
+            id                 INTEGER PRIMARY KEY,
+            brand_key          TEXT NOT NULL REFERENCES brands(key),
+            title              TEXT NOT NULL,
+            starts_at          TEXT NOT NULL,              -- UTC ISO
+            duration_minutes   INTEGER NOT NULL DEFAULT 60,
+            registration_url   TEXT NOT NULL,
+            calendly_url       TEXT NOT NULL,
+            status             TEXT NOT NULL DEFAULT 'planned'
+                               CHECK (status IN ('planned','promoting','live','replay_pending',
+                                                 'replay_uploaded','replay_public','cancelled')),
+            replay_path        TEXT,
+            replay_youtube_id  TEXT,
+            replay_uploaded_at TEXT,
+            chapters           TEXT NOT NULL DEFAULT '[]',  -- JSON list of [mm:ss, title]
+            created_at         TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+        );
+        ALTER TABLE posts ADD COLUMN webinar_id INTEGER REFERENCES webinars(id);
+        """,
+        down="""
+        ALTER TABLE posts DROP COLUMN webinar_id;
+        DROP TABLE webinars;
+        """,
+    ),
 )
 
 _SCHEMA_TABLE = """

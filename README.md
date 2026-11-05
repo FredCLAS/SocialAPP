@@ -138,3 +138,28 @@ python -m socialops --live reply-send --brand clas_by_fred          # sends appr
 - Editing a reply after approval means approving it again before it can send.
 - A failed send is marked `failed` and not retried automatically. Daily cap: 20 per brand.
 - Direct messages are not built yet. They need Meta messaging permission, which needs app review.
+
+## Webinars and YouTube replays (M6)
+
+Setup (once, on Pamela's Mac or yours):
+1. Google Cloud: create a project, enable YouTube Data API v3, create an OAuth client (Desktop app).
+2. Put the client ID in `brands.toml` under `[youtube] client_id`. Store the client secret and tokens in Keychain under `socialops.youtube`.
+3. The YouTube channel must be verified. Unverified API projects upload private only.
+
+```bash
+python -m socialops webinar-add --brand clas_by_fred --title "HIPAA risk basics" --starts 2026-12-02T19:00 \
+  --registration-url https://classbyfred.com/webinar --calendly-url https://calendly.com/fred/intro
+python -m socialops webinar-promote --id 1              # promo posts take the 3 weeks of webinar slots
+python -m socialops webinar-status --id 1 --status live
+python -m socialops webinar-replay-file --id 1 --file assets/clas_by_fred/replay.mp4 --chapters "00:00 Welcome|05:12 Risk|12:40 Next"
+python -m socialops --live replay-upload --id 1         # uploads PRIVATE, within 48 hours
+python -m socialops webinar-list --brand clas_by_fred   # shows OVERDUE if the deadline passes
+python -m socialops replay-approve-public --id 1 --actor pamela
+python -m socialops --live replay-publish-public --id 1
+python -m socialops youtube-quota
+```
+
+- Registration pages must be on the brand website (host the MailerLite form there). Calendly links must be calendly.com.
+- Quota: uploads cost 1,600 units, visibility changes 50. The app stops at 90% of the daily 10,000.
+- Going public needs your approval, recorded separately from the upload.
+- Replays are never uploaded automatically. Run `replay-upload` yourself.

@@ -18,6 +18,13 @@ api_version = "v21.0"   # Graph API version; verify current before go-live
 # Instagram and Facebook fetch media from a public URL. Hosting decision pending (see open questions).
 public_base_url = "https://whimsical-sprite-d0ccf7.netlify.app/social-media"
 
+[youtube]
+# Google Cloud OAuth desktop client for the Class by Fred channel (verified). Client ID is not secret.
+# Client secret goes in Keychain: socialops.youtube / client_secret. Tokens: socialops.youtube / access_token, refresh_token.
+client_id = "REPLACE_GOOGLE_CLIENT_ID"
+token_url = "https://oauth2.googleapis.com/token"
+category_id = "27"
+
 [llm]
 model = "claude-haiku-5-5"   # caption drafting; key lives in Keychain as socialops.claude / api_key
 max_tokens = 800

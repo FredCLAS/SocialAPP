@@ -66,6 +66,13 @@ class LlmConfig:
 
 
 @dataclass(frozen=True)
+class YouTubeConfig:
+    client_id: str
+    token_url: str = "https://oauth2.googleapis.com/token"
+    category_id: str = "27"  # Education; confirm against YouTube's current category list
+
+
+@dataclass(frozen=True)
 class Config:
     timezone: ZoneInfo
     dry_run: bool
@@ -75,6 +82,7 @@ class Config:
     canva: CanvaOAuthConfig | None = None
     meta_api_version: str = "v21.0"
     media_base_url: str | None = None  # public HTTPS base where published media is reachable
+    youtube: YouTubeConfig | None = None
 
     def brand(self, key: str) -> Brand:
         try:
@@ -225,6 +233,15 @@ def parse_config(data: dict) -> Config:
     if media_base is not None and not str(media_base).startswith("https://"):
         raise ConfigError("media.public_base_url must be https")
 
+    yt_raw = data.get("youtube")
+    youtube = None
+    if yt_raw is not None:
+        youtube = YouTubeConfig(
+            client_id=str(yt_raw.get("client_id", "")),
+            token_url=str(yt_raw.get("token_url", YouTubeConfig.token_url)),
+            category_id=str(yt_raw.get("category_id", YouTubeConfig.category_id)),
+        )
+
     return Config(
         timezone=tz,
         dry_run=bool(data.get("dry_run", True)),
@@ -232,6 +249,7 @@ def parse_config(data: dict) -> Config:
         brands=brands,
         llm=llm,
         canva=canva,
+        youtube=youtube,
         meta_api_version=str(meta_raw.get("api_version", "v21.0")),
         media_base_url=str(media_base) if media_base else None,
     )
