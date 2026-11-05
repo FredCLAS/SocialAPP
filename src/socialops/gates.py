@@ -14,7 +14,8 @@ class GateError(ValueError):
     pass
 
 
-def record_decision(conn: sqlite3.Connection, kind: str, ref_id: int, actor: str, decision: str) -> None:
+def record_decision(conn: sqlite3.Connection, kind: str, ref_id: int, actor: str, decision: str,
+                    note: str | None = None) -> None:
     if kind not in GATE_KINDS:
         raise GateError(f"unknown gate kind {kind!r}")
     if decision not in DECISIONS:
@@ -23,8 +24,8 @@ def record_decision(conn: sqlite3.Connection, kind: str, ref_id: int, actor: str
         raise GateError(f"{actor!r} is not an approver")
     with conn:
         conn.execute(
-            "INSERT INTO approvals (kind, ref_id, decided_by, decision) VALUES (?, ?, ?, ?)",
-            (kind, ref_id, actor, decision),
+            "INSERT INTO approvals (kind, ref_id, decided_by, decision, note) VALUES (?, ?, ?, ?, ?)",
+            (kind, ref_id, actor, decision, note),
         )
 
 

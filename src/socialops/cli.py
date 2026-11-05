@@ -102,6 +102,12 @@ def build_parser() -> argparse.ArgumentParser:
     ra.add_argument("--week", type=_date, required=True)
     ra.add_argument("--now", default=None, help="ISO time for testing; default is current UTC")
 
+    rv = sub.add_parser("review", help="open the weekly approval page for a brand and week (local only)")
+    rv.add_argument("--brand", required=True)
+    rv.add_argument("--week", type=_date, required=True)
+    rv.add_argument("--actor", required=True, help="approver name, e.g. pamela")
+    rv.add_argument("--port", type=int, default=8777)
+
     d = sub.add_parser("draft-week", help="draft captions with Claude for a brand and week")
     d.add_argument("--brand", required=True)
     d.add_argument("--week", type=_date, required=True)
@@ -236,6 +242,12 @@ def main(argv: list[str] | None = None) -> int:
             for p in posts:
                 print(f"{p.scheduled_at}  {p.platform:<10} {p.content_type:<14} {p.format:<5} {p.status}")
             print(f"{len(posts)} posts")
+            return 0
+
+        if args.command == "review":
+            from .review import serve
+            conn.close()
+            serve(args.db, cfg, args.brand, args.week, args.actor, port=args.port)
             return 0
 
         if args.command == "qa-week":

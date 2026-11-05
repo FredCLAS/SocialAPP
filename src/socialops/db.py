@@ -170,6 +170,12 @@ MIGRATIONS: tuple[Migration, ...] = (
         ALTER TABLE approvals_old RENAME TO approvals;
         """,
     ),
+    Migration(
+        version=6,
+        name="approval_notes",
+        up="ALTER TABLE approvals ADD COLUMN note TEXT;",
+        down="ALTER TABLE approvals DROP COLUMN note;",
+    ),
 )
 
 _SCHEMA_TABLE = """

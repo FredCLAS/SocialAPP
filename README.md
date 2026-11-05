@@ -95,3 +95,15 @@ python -m socialops run-agents --brand clas_by_fred --week 2026-11-02 # QA, then
 - Each agent run is logged in `agent_runs`. A failed agent is logged and does not stop the others.
 - The orchestrator stops at the first agent that is held waiting for a human.
 - Link checks run only in live mode, as read-only requests.
+
+## Weekly approval page (M4C)
+
+```bash
+python -m socialops qa-week --brand clas_by_fred --week 2026-11-02
+python -m socialops review --brand clas_by_fred --week 2026-11-02 --actor pamela
+```
+
+Open the printed address in a browser on the same Mac. The page lists the week's posts with their QA results. Approve or reject each one, or approve all that passed QA. Approving does not publish. Publishing runs on schedule for approved posts only. Press Ctrl+C in Terminal to stop the page.
+
+- The page listens on 127.0.0.1 only and needs the per-run token in its address.
+- Rejections need a reason and keep the post as a draft.
