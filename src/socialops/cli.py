@@ -214,6 +214,15 @@ def build_parser() -> argparse.ArgumentParser:
 
     sub.add_parser("video-sync", help="move jobs to approved or published when their post does")
 
+    ip = sub.add_parser("insights-pull", help="read post insights from Meta (live only, read-only)")
+    ip.add_argument("--brand", required=True)
+    ip.add_argument("--now", default=None)
+
+    rw = sub.add_parser("report-week", help="write the weekly report (Markdown) for a brand and week")
+    rw.add_argument("--brand", required=True)
+    rw.add_argument("--week", type=_date, required=True)
+    rw.add_argument("--now", default=None)
+
     d = sub.add_parser("draft-week", help="draft captions with Claude for a brand and week")
     d.add_argument("--brand", required=True)
     d.add_argument("--week", type=_date, required=True)
@@ -593,6 +602,24 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "video-sync":
             from .video_queue import sync_statuses
             print(f"moved {sync_statuses(conn)} job(s)")
+            return 0
+
+        if args.command == "insights-pull":
+            from .insights import pull_insights
+            from .secrets import KeychainStore as _KS
+            store = None if guard.dry_run else _KS()
+            res = pull_insights(conn, cfg, args.brand, store, guard, _now(args.now))
+            print(f"{res.status}: {res.reason}")
+            return 0
+
+        if args.command == "report-week":
+            from .insights import DEFAULT_ROOT as _IR, build_report, save_report
+            from .secrets import KeychainStore as _KS
+            store = None if guard.dry_run else _KS()
+            now = _now(args.now)
+            body = build_report(conn, cfg, args.brand, args.week, now, store=store, guard=guard)
+            path = save_report(conn, args.brand, args.week, body, _IR)
+            print(f"report written: {path}")
             return 0
 
         if args.command == "qa-week":

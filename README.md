@@ -191,3 +191,14 @@ python -m socialops video-list --brand clas_by_fred
 - Briefs are written to `~/Library/Application Support/SocialOps/zoice-queue/`.
 - Zoice output is AI-generated. Linked posts must carry the AI-generated label (QA checks it).
 - LinkedIn video is not built. Post it manually.
+
+## Insights and weekly report (M9)
+
+```bash
+python -m socialops --live insights-pull --brand clas_by_fred   # read-only Meta insights for recent posts
+python -m socialops report-week --brand clas_by_fred --week 2026-11-02
+```
+
+- The report is a Markdown file in `~/Library/Application Support/SocialOps/reports/`. It covers plan vs. published, QA and drafts, replies, webinars, videos, token state, and top posts.
+- Boost candidates appear at 300, 1,000, and 10,000 views. Nothing is boosted or spent. A boost needs a 'boost' approval, which is not built yet.
+- Metric names (`post_impressions`, `reach`, and others) are not verified against Meta's current API. Check them before trusting the numbers.

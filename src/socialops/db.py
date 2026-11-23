@@ -284,6 +284,32 @@ MIGRATIONS: tuple[Migration, ...] = (
         """,
         down="DROP TABLE video_jobs;",
     ),
+    Migration(
+        version=11,
+        name="insights_and_reports",
+        up="""
+        CREATE TABLE insights (
+            id        INTEGER PRIMARY KEY,
+            post_id   INTEGER NOT NULL REFERENCES posts(id),
+            metric    TEXT NOT NULL,
+            value     REAL NOT NULL,
+            pulled_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+        );
+        CREATE INDEX insights_post ON insights (post_id, metric, id);
+        CREATE TABLE reports (
+            id         INTEGER PRIMARY KEY,
+            brand_key  TEXT NOT NULL REFERENCES brands(key),
+            week_start TEXT NOT NULL,
+            body       TEXT NOT NULL,
+            created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+        );
+        """,
+        down="""
+        DROP TABLE reports;
+        DROP INDEX insights_post;
+        DROP TABLE insights;
+        """,
+    ),
 )
 
 _SCHEMA_TABLE = """
