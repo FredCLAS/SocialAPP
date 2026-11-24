@@ -223,6 +223,31 @@ def build_parser() -> argparse.ArgumentParser:
     rw.add_argument("--week", type=_date, required=True)
     rw.add_argument("--now", default=None)
 
+    li = sub.add_parser("lead-import", help="import a CSV or XLSX list of prospects (ICP-filtered, deduped by website)")
+    li.add_argument("--brand", required=True)
+    li.add_argument("--file", type=Path, required=True)
+
+    lr = sub.add_parser("lead-research", help="find company emails on public company sites (live only)")
+    lr.add_argument("--brand", required=True)
+    lr.add_argument("--limit", type=int, default=20)
+
+    lq = sub.add_parser("lead-qualify", help="approve a lead as qualified (found to qualified)")
+    lq.add_argument("--id", type=int, required=True)
+    lq.add_argument("--actor", required=True)
+
+    ls_ = sub.add_parser("lead-stage", help="move a lead to the next stage")
+    ls_.add_argument("--id", type=int, required=True)
+    ls_.add_argument("--to", required=True)
+    ls_.add_argument("--actor", required=True)
+
+    ll = sub.add_parser("lead-list", help="list leads for a brand")
+    ll.add_argument("--brand", required=True)
+    ll.add_argument("--stage", default=None)
+
+    lx = sub.add_parser("lead-export", help="export leads to CSV (for the Google Sheets CRM)")
+    lx.add_argument("--brand", required=True)
+    lx.add_argument("--out", type=Path, required=True)
+
     d = sub.add_parser("draft-week", help="draft captions with Claude for a brand and week")
     d.add_argument("--brand", required=True)
     d.add_argument("--week", type=_date, required=True)
@@ -620,6 +645,63 @@ def main(argv: list[str] | None = None) -> int:
             body = build_report(conn, cfg, args.brand, args.week, now, store=store, guard=guard)
             path = save_report(conn, args.brand, args.week, body, _IR)
             print(f"report written: {path}")
+            return 0
+
+        if args.command == "lead-import":
+            from .leads import LeadError, import_leads
+            from .content_engine import _ensure_brands
+            with conn:
+                _ensure_brands(conn, cfg)
+            try:
+                rep = import_leads(conn, args.brand, args.file)
+            except LeadError as exc:
+                print(str(exc), file=sys.stderr)
+                return 2
+            print(f"imported {rep.imported}")
+            for reason, n in sorted(rep.skipped.items(), key=lambda kv: -kv[1]):
+                print(f"  skipped {n}: {reason}")
+            return 0
+
+        if args.command == "lead-research":
+            from .leads import http_fetch, mx_lookup_default, research_lead
+            import time as _t
+            if guard.dry_run:
+                print("dry-run: research fetches public websites; run with --live")
+                return 0
+            rows = conn.execute("SELECT id, company FROM leads WHERE brand_key=? AND email IS NULL AND stage='found' "
+                                "ORDER BY id LIMIT ?", (args.brand, args.limit)).fetchall()
+            for r in rows:
+                print(f"{r['id']} {r['company']}: " + research_lead(conn, r["id"], http_fetch, mx_lookup_default, _t.sleep))
+            return 0
+
+        if args.command == "lead-qualify":
+            from .leads import qualify
+            from .gates import GateError
+            try:
+                print(qualify(conn, args.id, args.actor))
+            except GateError as exc:
+                print(str(exc), file=sys.stderr)
+                return 3
+            return 0
+
+        if args.command == "lead-stage":
+            from .leads import set_stage
+            print(set_stage(conn, args.id, args.to, args.actor, ""))
+            return 0
+
+        if args.command == "lead-list":
+            sql = "SELECT * FROM leads WHERE brand_key=?"
+            params = [args.brand]
+            if args.stage:
+                sql += " AND stage=?"
+                params.append(args.stage)
+            for r in conn.execute(sql + " ORDER BY stage, company", params).fetchall():
+                print(f"{r['id']:>4} {r['stage']:<10} {r['email_check']:<11} {r['company'][:40]:<40} {r['email'] or '-'}")
+            return 0
+
+        if args.command == "lead-export":
+            from .leads import export_csv
+            print(f"exported {export_csv(conn, args.brand, args.out)} leads to {args.out}")
             return 0
 
         if args.command == "qa-week":

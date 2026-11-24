@@ -202,3 +202,19 @@ python -m socialops report-week --brand clas_by_fred --week 2026-11-02
 - The report is a Markdown file in `~/Library/Application Support/SocialOps/reports/`. It covers plan vs. published, QA and drafts, replies, webinars, videos, token state, and top posts.
 - Boost candidates appear at 300, 1,000, and 10,000 views. Nothing is boosted or spent. A boost needs a 'boost' approval, which is not built yet.
 - Metric names (`post_impressions`, `reach`, and others) are not verified against Meta's current API. Check them before trusting the numbers.
+
+## Lead pipeline (M10)
+
+```bash
+python -m socialops lead-import --brand clas_by_fred --file ~/Desktop/leads/nefl.csv   # CSV or XLSX (XLSX: pip install -e '.[leads]')
+python -m socialops --live lead-research --brand clas_by_fred --limit 20                # company sites only, robots.txt respected
+python -m socialops lead-list --brand clas_by_fred
+python -m socialops lead-qualify --id 5 --actor frederic                                # found -> qualified (your decision)
+python -m socialops lead-stage --id 5 --to contacted --actor pamela                    # needs a passing MX check
+python -m socialops lead-export --brand clas_by_fred --out ~/Desktop/crm.csv            # import into the Google Sheets CRM
+```
+
+- Columns the importer understands (any spelling of these): company, website, sector, city, state, phone, employees. Rows under 10 employees or outside regulated sectors are skipped.
+- Only the company's own domain is used for emails. Each email records the page it came from.
+- Sites that disallow the research user agent in robots.txt are skipped. Sites where robots.txt can't be read are skipped for the run.
+- Google Sheets sync is not built. The CSV export is the bridge for now.

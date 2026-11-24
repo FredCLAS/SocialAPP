@@ -310,6 +310,47 @@ MIGRATIONS: tuple[Migration, ...] = (
         DROP TABLE insights;
         """,
     ),
+    Migration(
+        version=12,
+        name="leads",
+        up="""
+        CREATE TABLE leads (
+            id              INTEGER PRIMARY KEY,
+            brand_key       TEXT NOT NULL REFERENCES brands(key),
+            company         TEXT NOT NULL,
+            domain          TEXT NOT NULL,
+            sector          TEXT NOT NULL DEFAULT '',
+            city            TEXT NOT NULL DEFAULT '',
+            state           TEXT NOT NULL DEFAULT '',
+            phone           TEXT NOT NULL DEFAULT '',
+            employees       INTEGER,
+            stage           TEXT NOT NULL DEFAULT 'found'
+                            CHECK (stage IN ('found','qualified','contacted','replied','booked','won','lost')),
+            email           TEXT,
+            email_source    TEXT,                 -- URL on the company's own site where it was found
+            email_check     TEXT NOT NULL DEFAULT 'none'
+                            CHECK (email_check IN ('none','syntax_bad','no_mx','mx_ok','unverified')),
+            import_source   TEXT NOT NULL,        -- file name used for the import
+            created_at      TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+            updated_at      TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+            UNIQUE (brand_key, domain)
+        );
+        CREATE TABLE lead_events (
+            id        INTEGER PRIMARY KEY,
+            lead_id   INTEGER NOT NULL REFERENCES leads(id),
+            event     TEXT NOT NULL,
+            detail    TEXT NOT NULL DEFAULT '',
+            actor     TEXT,
+            at        TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+        );
+        CREATE INDEX lead_events_lead ON lead_events (lead_id, id);
+        """,
+        down="""
+        DROP INDEX lead_events_lead;
+        DROP TABLE lead_events;
+        DROP TABLE leads;
+        """,
+    ),
 )
 
 _SCHEMA_TABLE = """
