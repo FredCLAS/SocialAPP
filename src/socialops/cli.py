@@ -248,6 +248,27 @@ def build_parser() -> argparse.ArgumentParser:
     lx.add_argument("--brand", required=True)
     lx.add_argument("--out", type=Path, required=True)
 
+    od = sub.add_parser("outreach-draft", help="draft the first cold email for a qualified lead")
+    od.add_argument("--lead", type=int, required=True)
+    od.add_argument("--subject", default=None, help="type your own subject (with --body) instead of drafting")
+    od.add_argument("--body", default=None)
+
+    op_ = sub.add_parser("outreach-preview", help="show the full 3-email sequence for a lead")
+    op_.add_argument("--lead", type=int, required=True)
+
+    oa = sub.add_parser("outreach-approve", help="approve the sequence for a lead (your approval per contact)")
+    oa.add_argument("--lead", type=int, required=True)
+    oa.add_argument("--actor", required=True)
+
+    sub.add_parser("outreach-send", help="send due outreach emails (dry-run by default; daily cap applies)")
+    sub.add_parser("outreach-replies", help="read the inbox and stop sequences that got a reply (live only)")
+
+    oo = sub.add_parser("outreach-optout", help="record an opt-out address; stops its sequence")
+    oo.add_argument("--email", required=True)
+    oo.add_argument("--reason", default="asked to be removed")
+
+    sub.add_parser("outreach-status", help="contacts by status and today's send count")
+
     d = sub.add_parser("draft-week", help="draft captions with Claude for a brand and week")
     d.add_argument("--brand", required=True)
     d.add_argument("--week", type=_date, required=True)
@@ -702,6 +723,42 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "lead-export":
             from .leads import export_csv
             print(f"exported {export_csv(conn, args.brand, args.out)} leads to {args.out}")
+            return 0
+
+        if args.command in ("outreach-draft", "outreach-preview", "outreach-approve", "outreach-send",
+                            "outreach-replies", "outreach-optout", "outreach-status"):
+            from datetime import timezone as _tz
+            from . import outreach as _o
+            from .secrets import KeychainStore as _KS
+            from .config import ConfigError as _CE
+            from datetime import datetime as _dt
+            now = _dt.now(_tz.utc)
+            try:
+                if args.command == "outreach-draft":
+                    from .llm import client_from_keychain
+                    client = None if (guard.dry_run or args.body) else client_from_keychain(_KS())
+                    print(_o.draft_first_email(conn, cfg, args.lead, client, guard, args.subject, args.body))
+                elif args.command == "outreach-preview":
+                    print(_o.preview(conn, cfg, args.lead))
+                elif args.command == "outreach-approve":
+                    print(_o.approve_sequence(conn, cfg, args.lead, args.actor, now=now))
+                elif args.command == "outreach-send":
+                    store = None if guard.dry_run else _KS()
+                    for line in _o.send_due(conn, cfg, store, guard, now):
+                        print(line)
+                elif args.command == "outreach-replies":
+                    if guard.dry_run:
+                        print("dry-run: reply scan needs live mode")
+                        return 0
+                    for line in _o.scan_replies(conn, cfg, _KS(), guard):
+                        print(line)
+                elif args.command == "outreach-optout":
+                    print(_o.add_opt_out(conn, args.email, args.reason))
+                else:
+                    print(_o.status(conn, cfg, now))
+            except (_o.OutreachError, _CE) as exc:
+                print(str(exc), file=sys.stderr)
+                return 2
             return 0
 
         if args.command == "qa-week":

@@ -75,6 +75,15 @@ class YouTubeConfig:
 
 
 @dataclass(frozen=True)
+class OutreachConfig:
+    calendly_url: str | None = None
+    daily_cap: int = 30
+    sender: str | None = None
+    microsoft_client_id: str = ""
+    microsoft_token_url: str = "https://login.microsoftonline.com/common/oauth2/v2.0/token"
+
+
+@dataclass(frozen=True)
 class Config:
     timezone: ZoneInfo
     dry_run: bool
@@ -85,6 +94,7 @@ class Config:
     meta_api_version: str = "v21.0"
     media_base_url: str | None = None  # public HTTPS base where published media is reachable
     youtube: YouTubeConfig | None = None
+    outreach: OutreachConfig = field(default_factory=OutreachConfig)
 
     def brand(self, key: str) -> Brand:
         try:
@@ -248,6 +258,19 @@ def parse_config(data: dict) -> Config:
             category_id=str(yt_raw.get("category_id", YouTubeConfig.category_id)),
         )
 
+    out_raw = data.get("outreach", {})
+    ms_raw = data.get("microsoft", {})
+    cap = int(out_raw.get("daily_cap", 30))
+    if not 1 <= cap <= 30:
+        raise ConfigError("outreach.daily_cap must be 1 to 30")
+    outreach = OutreachConfig(
+        calendly_url=out_raw.get("calendly_url") or None,
+        daily_cap=cap,
+        sender=(brands["clas_by_fred"].outreach_sender if "clas_by_fred" in brands else None),
+        microsoft_client_id=str(ms_raw.get("client_id", "")),
+        microsoft_token_url=str(ms_raw.get("token_url", OutreachConfig.microsoft_token_url)),
+    )
+
     return Config(
         timezone=tz,
         dry_run=bool(data.get("dry_run", True)),
@@ -256,6 +279,7 @@ def parse_config(data: dict) -> Config:
         llm=llm,
         canva=canva,
         youtube=youtube,
+        outreach=outreach,
         meta_api_version=str(meta_raw.get("api_version", "v21.0")),
         media_base_url=str(media_base) if media_base else None,
     )

@@ -218,3 +218,24 @@ python -m socialops lead-export --brand clas_by_fred --out ~/Desktop/crm.csv    
 - Only the company's own domain is used for emails. Each email records the page it came from.
 - Sites that disallow the research user agent in robots.txt are skipped. Sites where robots.txt can't be read are skipped for the run.
 - Google Sheets sync is not built. The CSV export is the bridge for now.
+
+## Cold outreach (M11)
+
+Setup, once: a Microsoft Entra app with delegated Mail.Send, Mail.Read, and offline_access; its client ID in `[microsoft]`; a connected token on your Mac (Keychain, `socialops.microsoft`). Set `[outreach] calendly_url`.
+
+```bash
+python -m socialops outreach-draft --lead 12                       # Claude drafts step 0 (costs money); live only
+python -m socialops outreach-draft --lead 12 --subject "..." --body "..."   # or type it
+python -m socialops outreach-preview --lead 12                     # read all three emails
+python -m socialops outreach-approve --lead 12 --actor frederic    # your approval for this contact's whole sequence
+python -m socialops --live outreach-send                           # sends due emails (day 0, 4, 10), cap applies
+python -m socialops --live outreach-replies                        # stops sequences on replies and STOP words
+python -m socialops outreach-optout --email someone@example.com
+python -m socialops outreach-status
+```
+
+- Lead must be qualified, with an MX-ok email, and not opted out. Each email gets your name, the company, the postal address, a "reply STOP" line, and the Calendly link.
+- Approval covers the exact text. Editing after approval holds the sequence.
+- Daily cap defaults to 30 and can't go above 30. Your plan says to warm up for 2 to 3 weeks: set `daily_cap` lower in `[outreach]` during warm-up.
+- A definite send error stops that contact. An unclear error holds it until you check Outlook Sent Items.
+- Outreach is not on the 5-minute scheduler yet. Run `outreach-send` and `outreach-replies` on your own schedule.

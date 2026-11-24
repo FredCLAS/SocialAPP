@@ -27,6 +27,17 @@ client_id = "REPLACE_GOOGLE_CLIENT_ID"
 token_url = "https://oauth2.googleapis.com/token"
 category_id = "27"
 
+[outreach]
+# Cold email for clas_by_fred only. Sender is outreach_sender above (Microsoft 365, confirm domain).
+calendly_url = "REPLACE_CALENDLY_URL"   # required in every outreach email
+daily_cap = 30                           # hard max 30
+
+[microsoft]
+# Microsoft Entra app (delegated Mail.Send, Mail.Read, offline_access). Client ID is not secret.
+# Tokens live in Keychain under socialops.microsoft (access_token, refresh_token, expires_at).
+client_id = "REPLACE_MICROSOFT_CLIENT_ID"
+token_url = "https://login.microsoftonline.com/common/oauth2/v2.0/token"
+
 [llm]
 model = "claude-haiku-5-5"   # caption drafting; key lives in Keychain as socialops.claude / api_key
 max_tokens = 800

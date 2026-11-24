@@ -351,6 +351,52 @@ MIGRATIONS: tuple[Migration, ...] = (
         DROP TABLE leads;
         """,
     ),
+    Migration(
+        version=13,
+        name="outreach",
+        up="""
+        CREATE TABLE outreach_contacts (
+            id           INTEGER PRIMARY KEY,
+            lead_id      INTEGER NOT NULL UNIQUE REFERENCES leads(id),
+            status       TEXT NOT NULL DEFAULT 'active'
+                         CHECK (status IN ('active','finished','stopped_reply','stopped_optout','stopped_error','hold')),
+            approved_by  TEXT NOT NULL,
+            approved_at  TEXT NOT NULL,
+            approval_hash TEXT NOT NULL,
+            created_at   TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+        );
+        CREATE TABLE outreach_steps (
+            id          INTEGER PRIMARY KEY,
+            contact_id  INTEGER NOT NULL REFERENCES outreach_contacts(id),
+            step        INTEGER NOT NULL CHECK (step IN (0,1,2)),
+            subject     TEXT NOT NULL,
+            body        TEXT NOT NULL,
+            status      TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','sent','failed','unknown')),
+            sent_at     TEXT,
+            detail      TEXT NOT NULL DEFAULT '',
+            UNIQUE (contact_id, step)
+        );
+        CREATE TABLE opt_outs (
+            email      TEXT PRIMARY KEY,
+            reason     TEXT NOT NULL,
+            added_at   TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+        );
+        CREATE TABLE outreach_drafts (
+            id         INTEGER PRIMARY KEY,
+            lead_id    INTEGER NOT NULL UNIQUE REFERENCES leads(id),
+            subject    TEXT NOT NULL,
+            body       TEXT NOT NULL,
+            source     TEXT NOT NULL,
+            created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+        );
+        """,
+        down="""
+        DROP TABLE outreach_drafts;
+        DROP TABLE opt_outs;
+        DROP TABLE outreach_steps;
+        DROP TABLE outreach_contacts;
+        """,
+    ),
 )
 
 _SCHEMA_TABLE = """
